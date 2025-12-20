@@ -15,9 +15,9 @@ class LuceneIndexTest {
 
   @Test
   void indexAndSearch_shouldFindRelevantChunk() throws Exception {
-    PathsConfig paths = new TestPathsConfig(tempDir);
+    MiniReaderConfig config = new MiniReaderConfig(tempDir);
 
-    try (LuceneIndex index = new LuceneIndex(paths)) {
+    try (LuceneIndex index = new LuceneIndex(config)) {
       DocumentDto doc = new DocumentDto(
           "doc1",
           "https://example.com/doc1",
@@ -46,9 +46,9 @@ class LuceneIndexTest {
 
   @Test
   void reindex_shouldReplaceOldChunks() throws Exception {
-    PathsConfig paths = new TestPathsConfig(tempDir);
+    MiniReaderConfig config = new MiniReaderConfig(tempDir);
 
-    try (LuceneIndex index = new LuceneIndex(paths)) {
+    try (LuceneIndex index = new LuceneIndex(config)) {
       DocumentDto doc = new DocumentDto("doc2", "u", "t", Instant.now(), List.of(), List.of(), "");
 
       index.index(doc, List.of(new ChunkDto("doc2", 0, "", "cats dogs")));

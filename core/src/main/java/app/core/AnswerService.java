@@ -1,18 +1,21 @@
 package app.core;
 
+import org.apache.lucene.queryparser.classic.ParseException;
+
+import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class AnswerService {
-  public AnswerService(LuceneIndex index) {
+class AnswerService {
+  AnswerService(LuceneIndex index) {
     this.index = index;
   }
 
-  public Answer answer(String question) throws Exception {
+  public AnswerDto answer(String question) throws IOException, ParseException {
     List<LuceneIndex.SearchHit> hits = index.search(question, 8);
     if (hits.isEmpty()) {
-      return new Answer("No matches found in your local library.", List.of(), List.of());
+      return new AnswerDto("No matches found in your local library.", List.of(), List.of());
     }
 
     List<LuceneIndex.SearchHit> top = hits.stream()
@@ -27,19 +30,19 @@ public class AnswerService {
         .limit(6)
         .toList();
 
-    List<Citation> cites = top.stream()
+    List<AnswerDto.CitationDto> cites = top.stream()
         .limit(6)
-        .map(h -> new Citation(h.title(), h.url(), h.headingPath(), h.chunkId(), snippet(h.text())))
+        .map(h -> new AnswerDto.CitationDto(h.title(), h.url(), h.headingPath(), h.chunkId(), snippet(h.text())))
         .toList();
 
     String summary = bullets.isEmpty()
         ? "Top matching passages found. See citations."
         : bullets.stream().map(b -> "• " + b).collect(Collectors.joining("\n"));
 
-    return new Answer(summary, bullets, cites);
+    return new AnswerDto(summary, bullets, cites);
   }
 
-  String bestSentence(String text) {
+  private String bestSentence(String text) {
     String t = text == null ? "" : text.strip();
     if (t.isBlank()) return "";
 
@@ -51,14 +54,11 @@ public class AnswerService {
     return t.length() <= 220 ? t : t.substring(0, 220).strip() + "…";
   }
 
-  String snippet(String text) {
+  private String snippet(String text) {
     String t = text == null ? "" : text.strip();
     if (t.length() <= 280) return t;
     return t.substring(0, 280).strip() + "…";
   }
-
-  public record Answer(String summary, List<String> bullets, List<Citation> citations) {}
-  public record Citation(String title, String url, String headingPath, int chunkId, String snippet) {}
 
   private final LuceneIndex index;
 }

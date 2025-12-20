@@ -5,26 +5,28 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
+import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.*;
 import org.apache.lucene.store.FSDirectory;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
 class LuceneIndex implements AutoCloseable {
-  LuceneIndex(PathsConfig paths) throws Exception {
+  LuceneIndex(MiniReaderConfig config) throws IOException {
     this.analyzer = new StandardAnalyzer();
-    Files.createDirectories(paths.indexDir());
-    this.directory = FSDirectory.open(paths.indexDir());
+    Files.createDirectories(config.indexDir());
+    this.directory = FSDirectory.open(config.indexDir());
 
     IndexWriterConfig cfg = new IndexWriterConfig(analyzer);
     cfg.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
     this.writer = new IndexWriter(directory, cfg);
   }
 
-  void index(DocumentDto doc, List<ChunkDto> chunks) throws Exception {
+  void index(DocumentDto doc, List<ChunkDto> chunks) throws IOException {
     deleteDoc(doc.id());
 
     for (ChunkDto c : chunks) {
@@ -42,12 +44,12 @@ class LuceneIndex implements AutoCloseable {
     writer.commit();
   }
 
-  void deleteDoc(String docId) throws Exception {
+  void deleteDoc(String docId) throws IOException {
     writer.deleteDocuments(new Term("docId", docId));
     writer.commit();
   }
 
-  List<SearchHit> search(String query, int limit) throws Exception {
+  List<SearchHit> search(String query, int limit) throws IOException, ParseException {
     writer.commit();
     try (DirectoryReader reader = DirectoryReader.open(writer)) {
       IndexSearcher searcher = new IndexSearcher(reader);
@@ -73,7 +75,7 @@ class LuceneIndex implements AutoCloseable {
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() throws IOException {
     writer.close();
     directory.close();
     analyzer.close();

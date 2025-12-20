@@ -20,8 +20,8 @@ class DocumentStoreTest {
 
   @Test
   void saveLoad_roundTrip() throws Exception {
-    PathsConfig paths = new TestPathsConfig(tempDir);
-    DocumentStore store = new DocumentStore(paths);
+    MiniReaderConfig config = new MiniReaderConfig(tempDir);
+    DocumentStore store = new DocumentStore(config);
 
     DocumentDto doc = new DocumentDto(
         "docX",
@@ -48,8 +48,8 @@ class DocumentStoreTest {
 
   @Test
   void save_matchesGoldenFormat() throws Exception {
-    PathsConfig paths = new TestPathsConfig(tempDir);
-    DocumentStore store = new DocumentStore(paths);
+    MiniReaderConfig config = new MiniReaderConfig(tempDir);
+    DocumentStore store = new DocumentStore(config);
 
     DocumentDto doc = new DocumentDto(
         "docX",
@@ -68,7 +68,7 @@ class DocumentStoreTest {
 
     store.save(doc);
 
-    Path saved = paths.docsDir().resolve("docX.json");
+    Path saved = config.docsDir().resolve("docX.json");
     String actual = Files.readString(saved).trim();
     String expected = readResource("document_dto.json").trim();
 

@@ -9,17 +9,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 class DocumentStore {
-	DocumentStore(PathsConfig paths) {
-		  this.paths = paths;
-		  mapper = new ObjectMapper()
-		      .registerModule(new JavaTimeModule())
-		      .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-		}
+  DocumentStore(MiniReaderConfig config) {
+    this.config = config;
+    mapper = new ObjectMapper()
+        .registerModule(new JavaTimeModule())
+        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+  }
 
 
   void save(DocumentDto doc) throws IOException {
-    Files.createDirectories(paths.docsDir());
-    Path p = paths.docsDir().resolve(doc.id() + ".json");
+    Files.createDirectories(config.docsDir());
+    Path p = config.docsDir().resolve(doc.id() + ".json");
     mapper.writeValue(p.toFile(), doc);
   }
 
@@ -28,12 +28,12 @@ class DocumentStore {
   }
 
   java.util.List<Path> list() throws IOException {
-    Files.createDirectories(paths.docsDir());
-    try (var s = Files.list(paths.docsDir())) {
+    Files.createDirectories(config.docsDir());
+    try (var s = Files.list(config.docsDir())) {
       return s.filter(p -> p.getFileName().toString().endsWith(".json")).sorted().toList();
     }
   }
 
   private final ObjectMapper mapper;
-  private final PathsConfig paths;
+  private final MiniReaderConfig config;
 }

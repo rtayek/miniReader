@@ -15,7 +15,7 @@ import java.util.List;
     @JsonSubTypes.Type(value = BlockDto.Code.class, name = "code"),
     @JsonSubTypes.Type(value = BlockDto.BulletedList.class, name = "bulletedList")
 })
-sealed interface BlockDto
+public sealed interface BlockDto
     permits BlockDto.Heading,
             BlockDto.Paragraph,
             BlockDto.Code,

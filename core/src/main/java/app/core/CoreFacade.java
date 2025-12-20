@@ -1,24 +1,28 @@
 package app.core;
 
+import org.apache.lucene.queryparser.classic.ParseException;
+
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 
 public class CoreFacade implements AutoCloseable {
-  public CoreFacade() throws Exception {
-    this(new PathsConfig());
+  public CoreFacade() throws IOException {
+    this(MiniReaderConfig.defaults());
   }
 
-  CoreFacade(PathsConfig paths) throws Exception {
-    this.paths = paths;
+  public CoreFacade(MiniReaderConfig config) throws IOException {
+    this.config = Objects.requireNonNull(config, "config");
     this.fetcher = new Fetcher();
     this.extractor = new Extractor();
     this.chunker = new Chunker();
-    this.store = new DocumentStore(paths);
-    this.index = new LuceneIndex(paths);
+    this.store = new DocumentStore(config);
+    this.index = new LuceneIndex(config);
     this.answerService = new AnswerService(index);
   }
 
-  public IngestResult ingestUrl(String url) throws Exception {
+  public IngestResult ingestUrl(String url) throws IOException, InterruptedException {
     FetchResult fetch = fetcher.fetch(url);
 
     if (fetch.statusCode() < 200 || fetch.statusCode() >= 300) {
@@ -43,20 +47,20 @@ public class CoreFacade implements AutoCloseable {
     return new IngestResult(doc, "Saved + indexed (" + chunks.size() + " chunks).");
   }
 
-  public List<Path> listSavedDocs() throws Exception {
+  public List<Path> listSavedDocs() throws IOException {
     return store.list();
   }
 
-  public DocumentDto loadSavedDoc(Path file) throws Exception {
+  public DocumentDto loadSavedDoc(Path file) throws IOException {
     return store.load(file);
   }
 
-  public AnswerService.Answer ask(String question) throws Exception {
+  public AnswerDto ask(String question) throws IOException, ParseException {
     return answerService.answer(question);
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() throws IOException {
     index.close();
   }
 
@@ -77,5 +81,5 @@ public class CoreFacade implements AutoCloseable {
   private final Extractor extractor;
   private final Fetcher fetcher;
   private final LuceneIndex index;
-  private final PathsConfig paths;
+  private final MiniReaderConfig config;
 }

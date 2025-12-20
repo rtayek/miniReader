@@ -16,7 +16,7 @@ class CoreFacadeShellDetectionTest {
     Extractor extractor = new Extractor();
     DocumentDto doc = extractor.extract(fetch);
 
-    try (CoreFacade core = new CoreFacade(new TestPathsConfig(Files.createTempDirectory("mr")))) {
+    try (CoreFacade core = new CoreFacade(new MiniReaderConfig(Files.createTempDirectory("mr")))) {
       assertTrue(core.looksLikeJsShell(doc.plainText()));
     }
   }

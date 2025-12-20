@@ -1,5 +1,6 @@
 package app.core;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -7,7 +8,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 
 class Fetcher {
-  FetchResult fetch(String url) throws Exception {
+  FetchResult fetch(String url) throws IOException, InterruptedException {
     HttpClient client = HttpClient.newBuilder()
         .followRedirects(HttpClient.Redirect.NORMAL)
         .connectTimeout(Duration.ofSeconds(12))

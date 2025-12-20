@@ -1,6 +1,6 @@
 package app.ui;
 
-import app.core.AnswerService;
+import app.core.AnswerDto;
 import app.core.CoreFacade;
 import app.core.DocumentDto;
 
@@ -162,16 +162,16 @@ class MiniReaderFrame extends JFrame {
 
     askButton.setEnabled(false);
 
-    new SwingWorker<AnswerService.Answer, Void>() {
+    new SwingWorker<AnswerDto, Void>() {
       @Override
-      protected AnswerService.Answer doInBackground() throws Exception {
+      protected AnswerDto doInBackground() throws Exception {
         return core.ask(q);
       }
 
       @Override
       protected void done() {
         try {
-          AnswerService.Answer a = get();
+          AnswerDto a = get();
           appendChat("MiniReader:\n" + a.summary() + "\n");
           if (!a.citations().isEmpty()) {
             appendChat("\nCitations:\n");

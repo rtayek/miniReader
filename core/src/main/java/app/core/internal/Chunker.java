@@ -1,14 +1,18 @@
-package app.core;
+package app.core.internal;
+
+import app.core.BlockDto;
+import app.core.DocumentDto;
+import app.core.MiniReaderConfig;
 
 import java.util.ArrayList;
 import java.util.List;
 
-class Chunker {
-  Chunker(MiniReaderConfig config) {
+public class Chunker {
+  public Chunker(MiniReaderConfig config) {
     this.config = config;
   }
 
-  List<ChunkDto> chunk(DocumentDto doc) {
+  public List<ChunkDto> chunk(DocumentDto doc) {
     List<ChunkDto> out = new ArrayList<>();
     BlockAccumulator acc = new BlockAccumulator(doc.id(), out, config.chunkMaxChars(), config.chunkOverlapChars());
     for (BlockDto b : doc.blocks()) {

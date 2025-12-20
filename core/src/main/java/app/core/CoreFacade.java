@@ -1,5 +1,13 @@
 package app.core;
 
+import app.core.internal.AnswerService;
+import app.core.internal.ChunkDto;
+import app.core.internal.Chunker;
+import app.core.internal.DocumentStore;
+import app.core.internal.Extractor;
+import app.core.internal.FetchResult;
+import app.core.internal.Fetcher;
+import app.core.internal.LuceneIndex;
 import org.apache.lucene.queryparser.classic.ParseException;
 
 import java.io.IOException;
@@ -28,26 +36,18 @@ public class CoreFacade implements AutoCloseable {
 
   public IngestResult ingestUrl(String url) throws MiniReaderException {
     try {
-      FetchResult fetch = fetcher.fetch(url);
+      FetchResult fetch = fetch(url);
+      String validation = validateFetch(url, fetch);
+      if (validation != null) return new IngestResult(null, validation);
 
-      if (fetch.statusCode() < 200 || fetch.statusCode() >= 300) {
-        return new IngestResult(null, "HTTP " + fetch.statusCode() + " for " + url);
-      }
+      DocumentDto doc = extract(fetch);
 
-      if (!fetch.contentType().toLowerCase().contains("text/html") && !fetch.contentType().isBlank()) {
-        return new IngestResult(null, "Unsupported content-type: " + fetch.contentType());
-      }
+      String shellMsg = detectShell(doc);
+      if (shellMsg != null) return new IngestResult(doc, shellMsg);
 
-      DocumentDto doc = extractor.extract(fetch);
-
-      if (looksLikeJsShell(doc.plainText())) {
-        store.save(doc);
-        return new IngestResult(doc, "This page looks JS-rendered (SPA shell). Extracted text may be empty.");
-      }
-
-      List<ChunkDto> chunks = chunker.chunk(doc);
-      store.save(doc);
-      index.index(doc, chunks);
+      List<ChunkDto> chunks = chunk(doc);
+      persist(doc);
+      indexChunks(doc, chunks);
 
       return new IngestResult(doc, "Saved + indexed (" + chunks.size() + " chunks).");
     } catch (InterruptedException e) {
@@ -109,4 +109,42 @@ public class CoreFacade implements AutoCloseable {
   private final Fetcher fetcher;
   private final LuceneIndex index;
   private final MiniReaderConfig config;
+
+  private FetchResult fetch(String url) throws IOException, InterruptedException {
+    return fetcher.fetch(url);
+  }
+
+  private String validateFetch(String url, FetchResult fetch) {
+    if (fetch.statusCode() < 200 || fetch.statusCode() >= 300) {
+      return "HTTP " + fetch.statusCode() + " for " + url;
+    }
+    if (!fetch.contentType().toLowerCase().contains("text/html") && !fetch.contentType().isBlank()) {
+      return "Unsupported content-type: " + fetch.contentType();
+    }
+    return null;
+  }
+
+  private DocumentDto extract(FetchResult fetch) {
+    return extractor.extract(fetch);
+  }
+
+  private String detectShell(DocumentDto doc) throws IOException {
+    if (looksLikeJsShell(doc.plainText())) {
+      store.save(doc);
+      return "This page looks JS-rendered (SPA shell). Extracted text may be empty.";
+    }
+    return null;
+  }
+
+  private List<ChunkDto> chunk(DocumentDto doc) {
+    return chunker.chunk(doc);
+  }
+
+  private void persist(DocumentDto doc) throws IOException {
+    store.save(doc);
+  }
+
+  private void indexChunks(DocumentDto doc, List<ChunkDto> chunks) throws IOException {
+    index.index(doc, chunks);
+  }
 }

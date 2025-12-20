@@ -1,5 +1,8 @@
-package app.core;
+package app.core.internal;
 
+import app.core.CoreFacade;
+import app.core.DocumentDto;
+import app.core.MiniReaderConfig;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;

@@ -1,5 +1,8 @@
-package app.core;
+package app.core.internal;
 
+import app.core.BlockDto;
+import app.core.DocumentDto;
+import app.core.LinkDto;
 import net.dankito.readability4j.Readability4J;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -13,8 +16,10 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 
-class Extractor {
-  DocumentDto extract(FetchResult fetch) {
+public class Extractor {
+  public Extractor() {}
+
+  public DocumentDto extract(FetchResult fetch) {
     String canonicalUrl = canonicalizeUrl(fetch.url());
 
     Document jsoupDoc = Jsoup.parse(fetch.body(), canonicalUrl);

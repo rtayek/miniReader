@@ -42,11 +42,11 @@ public record MiniReaderConfig(
     MiniReaderConfig d = defaults();
     return new MiniReaderConfig(
         baseDir,
-        d.connectTimeout,
-        d.requestTimeout,
-        d.userAgent,
-        d.chunkMaxChars,
-        d.chunkOverlapChars
+        d.connectTimeout(),
+        d.requestTimeout(),
+        d.userAgent(),
+        d.chunkMaxChars(),
+        d.chunkOverlapChars()
     );
   }
 

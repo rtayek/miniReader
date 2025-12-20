@@ -1,5 +1,7 @@
-package app.core;
+package app.core.internal;
 
+import app.core.AnswerDto;
+import app.core.CitationDto;
 import org.apache.lucene.queryparser.classic.ParseException;
 
 import java.io.IOException;
@@ -7,8 +9,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-class AnswerService {
-  AnswerService(LuceneIndex index) {
+public class AnswerService {
+  public AnswerService(LuceneIndex index) {
     this.index = index;
   }
 

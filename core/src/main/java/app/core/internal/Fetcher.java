@@ -1,4 +1,6 @@
-package app.core;
+package app.core.internal;
+
+import app.core.MiniReaderConfig;
 
 import java.io.IOException;
 import java.net.URI;
@@ -6,12 +8,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-class Fetcher {
-  Fetcher(MiniReaderConfig config) {
+public class Fetcher {
+  public Fetcher(MiniReaderConfig config) {
     this.config = config;
   }
 
-  FetchResult fetch(String url) throws IOException, InterruptedException {
+  public FetchResult fetch(String url) throws IOException, InterruptedException {
     HttpClient client = HttpClient.newBuilder()
         .followRedirects(HttpClient.Redirect.NORMAL)
         .connectTimeout(config.connectTimeout())

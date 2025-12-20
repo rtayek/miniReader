@@ -1,5 +1,6 @@
-package app.core;
+package app.core.internal;
 
+import app.core.DocumentDto;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;

@@ -1,5 +1,9 @@
-package app.core;
+package app.core.internal;
 
+import app.core.BlockDto;
+import app.core.DocumentDto;
+import app.core.LinkDto;
+import app.core.MiniReaderConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

@@ -1,6 +1,9 @@
-package app.core;
+package app.core.internal;
 
+import app.core.BlockDto;
+import app.core.DocumentDto;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -24,7 +27,7 @@ class TestDocs {
   }
 
   static List<BlockDto> paragraphsToBlocks(String... paragraphs) {
-    return List.of(paragraphs).stream()
+    return Arrays.stream(paragraphs)
         .map(BlockDto.Paragraph::new)
         .map(b -> (BlockDto) b)
         .toList();

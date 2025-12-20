@@ -11,17 +11,14 @@ class ChunkerTest {
   @Test
   void chunk_shouldSplitLongTextWithOverlap() {
     String big = "0123456789".repeat(500); // 5000 chars
-    DocumentDto doc = new DocumentDto(
+    DocumentDto doc = TestDocs.docWithBlocks(
         "doc1",
         "https://example.com",
         "t",
-        Instant.now(),
-        List.of(new BlockDto.Heading(1, "H"), new BlockDto.Paragraph(big)),
-        List.of(),
-        big
+        List.of(new BlockDto.Heading(1, "H"), new BlockDto.Paragraph(big))
     );
 
-    Chunker chunker = new Chunker();
+    Chunker chunker = new Chunker(MiniReaderConfig.defaults());
     List<ChunkDto> chunks = chunker.chunk(doc);
 
     assertTrue(chunks.size() >= 4);
@@ -37,22 +34,19 @@ class ChunkerTest {
 
   @Test
   void chunk_shouldKeepHeadingPath() {
-    DocumentDto doc = new DocumentDto(
+    DocumentDto doc = TestDocs.docWithBlocks(
         "doc2",
         "u",
         "t",
-        Instant.now(),
         List.of(
             new BlockDto.Heading(2, "Section A"),
             new BlockDto.Paragraph("Some text here."),
             new BlockDto.Heading(2, "Section B"),
             new BlockDto.Paragraph("Other text here.")
-        ),
-        List.of(),
-        ""
+        )
     );
 
-    Chunker chunker = new Chunker();
+    Chunker chunker = new Chunker(MiniReaderConfig.defaults());
     List<ChunkDto> chunks = chunker.chunk(doc);
 
     assertTrue(chunks.stream().anyMatch(c -> "Section A".equals(c.headingPath())));

@@ -15,9 +15,9 @@ public class CoreFacade implements AutoCloseable {
   public CoreFacade(MiniReaderConfig config) throws MiniReaderException {
     try {
       this.config = Objects.requireNonNull(config, "config");
-      this.fetcher = new Fetcher();
+      this.fetcher = new Fetcher(config);
       this.extractor = new Extractor();
-      this.chunker = new Chunker();
+      this.chunker = new Chunker(config);
       this.store = new DocumentStore(config);
       this.index = new LuceneIndex(config);
       this.answerService = new AnswerService(index);

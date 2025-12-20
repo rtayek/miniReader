@@ -15,22 +15,19 @@ class LuceneIndexTest {
 
   @Test
   void indexAndSearch_shouldFindRelevantChunk() throws Exception {
-    MiniReaderConfig config = new MiniReaderConfig(tempDir);
+    MiniReaderConfig config = MiniReaderConfig.fromBaseDir(tempDir);
 
     try (LuceneIndex index = new LuceneIndex(config)) {
-      DocumentDto doc = new DocumentDto(
+      DocumentDto doc = TestDocs.docWithParagraphs(
           "doc1",
           "https://example.com/doc1",
           "Doc 1",
-          Instant.now(),
-          List.of(new BlockDto.Paragraph("JavaFX is a UI toolkit for the JVM.")),
-          List.of(),
           "JavaFX is a UI toolkit for the JVM."
       );
 
       List<ChunkDto> chunks = List.of(
-          new ChunkDto(doc.id(), 0, "Intro", "JavaFX is a UI toolkit for the JVM."),
-          new ChunkDto(doc.id(), 1, "Other", "Unrelated text about bananas.")
+          TestDocs.chunk(doc.id(), 0, "Intro", "JavaFX is a UI toolkit for the JVM."),
+          TestDocs.chunk(doc.id(), 1, "Other", "Unrelated text about bananas.")
       );
 
       index.index(doc, chunks);
@@ -46,15 +43,15 @@ class LuceneIndexTest {
 
   @Test
   void reindex_shouldReplaceOldChunks() throws Exception {
-    MiniReaderConfig config = new MiniReaderConfig(tempDir);
+    MiniReaderConfig config = MiniReaderConfig.fromBaseDir(tempDir);
 
     try (LuceneIndex index = new LuceneIndex(config)) {
-      DocumentDto doc = new DocumentDto("doc2", "u", "t", Instant.now(), List.of(), List.of(), "");
+      DocumentDto doc = TestDocs.docWithBlocks("doc2", "u", "t", List.of());
 
-      index.index(doc, List.of(new ChunkDto("doc2", 0, "", "cats dogs")));
+      index.index(doc, List.of(TestDocs.chunk("doc2", 0, "", "cats dogs")));
       assertFalse(index.search("cats", 5).isEmpty());
 
-      index.index(doc, List.of(new ChunkDto("doc2", 0, "", "lemons limes")));
+      index.index(doc, List.of(TestDocs.chunk("doc2", 0, "", "lemons limes")));
       assertTrue(index.search("cats", 5).isEmpty());
       assertFalse(index.search("lemons", 5).isEmpty());
     }

@@ -4,9 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 class Chunker {
+  Chunker(MiniReaderConfig config) {
+    this.config = config;
+  }
+
   List<ChunkDto> chunk(DocumentDto doc) {
     List<ChunkDto> out = new ArrayList<>();
-    BlockAccumulator acc = new BlockAccumulator(doc.id(), out);
+    BlockAccumulator acc = new BlockAccumulator(doc.id(), out, config.chunkMaxChars(), config.chunkOverlapChars());
     for (BlockDto b : doc.blocks()) {
       b.accept(acc);
     }
@@ -15,9 +19,11 @@ class Chunker {
   }
 
   private static final class BlockAccumulator implements BlockDto.BlockVisitor<Void> {
-    BlockAccumulator(String docId, List<ChunkDto> out) {
+    BlockAccumulator(String docId, List<ChunkDto> out, int maxChars, int overlapChars) {
       this.docId = docId;
       this.out = out;
+      this.maxChars = maxChars;
+      this.overlapChars = overlapChars;
     }
 
     @Override
@@ -51,23 +57,24 @@ class Chunker {
       String text = buf.toString().strip();
       if (text.isBlank()) return;
 
-      int maxChars = 900;
-      int overlap = 180;
-
       int i = 0;
       while (i < text.length()) {
         int end = Math.min(text.length(), i + maxChars);
         String slice = text.substring(i, end).strip();
         if (!slice.isBlank()) out.add(new ChunkDto(docId, chunkId++, headingPath, slice));
         if (end == text.length()) break;
-        i = Math.max(0, end - overlap);
+        i = Math.max(0, end - overlapChars);
       }
     }
 
     private final StringBuilder buf = new StringBuilder();
     private final String docId;
     private final List<ChunkDto> out;
+    private final int maxChars;
+    private final int overlapChars;
     private String headingPath = "";
     private int chunkId = 0;
   }
+
+  private final MiniReaderConfig config;
 }

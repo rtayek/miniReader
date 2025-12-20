@@ -8,6 +8,7 @@ import app.core.MiniReaderException;
 import javax.swing.*;
 import java.awt.*;
 import java.nio.file.Path;
+import java.util.concurrent.ExecutionException;
 
 class MiniReaderFrame extends JFrame {
   MiniReaderFrame() throws Exception {
@@ -100,10 +101,13 @@ class MiniReaderFrame extends JFrame {
             readerArea.setCaretPosition(0);
           }
           refreshDocList();
-        } catch (MiniReaderException ex) {
-          statusLabel.setText("Error: " + ex.getMessage());
-        } catch (Exception ex) {
-          statusLabel.setText("Error: " + ex.getMessage());
+        } catch (ExecutionException ex) {
+          Throwable cause = ex.getCause();
+          String msg = cause instanceof MiniReaderException ? cause.getMessage() : ex.getMessage();
+          statusLabel.setText("Error: " + msg);
+        } catch (InterruptedException ex) {
+          Thread.currentThread().interrupt();
+          statusLabel.setText("Interrupted.");
         } finally {
           fetchButton.setEnabled(true);
         }
@@ -125,10 +129,13 @@ class MiniReaderFrame extends JFrame {
           docListModel.clear();
           for (Path p : docs) docListModel.addElement(p);
           if (!docs.isEmpty() && docList.getSelectedIndex() < 0) docList.setSelectedIndex(docs.size() - 1);
-        } catch (MiniReaderException ex) {
-          statusLabel.setText("Error listing docs: " + ex.getMessage());
-        } catch (Exception ex) {
-          statusLabel.setText("Error listing docs: " + ex.getMessage());
+        } catch (ExecutionException ex) {
+          Throwable cause = ex.getCause();
+          String msg = cause instanceof MiniReaderException ? cause.getMessage() : ex.getMessage();
+          statusLabel.setText("Error listing docs: " + msg);
+        } catch (InterruptedException ex) {
+          Thread.currentThread().interrupt();
+          statusLabel.setText("Interrupted.");
         }
       }
     }.execute();
@@ -151,10 +158,13 @@ class MiniReaderFrame extends JFrame {
           readerArea.setText(doc.plainText());
           readerArea.setCaretPosition(0);
           statusLabel.setText("Loaded: " + doc.title());
-        } catch (MiniReaderException ex) {
-          statusLabel.setText("Error loading doc: " + ex.getMessage());
-        } catch (Exception ex) {
-          statusLabel.setText("Error loading doc: " + ex.getMessage());
+        } catch (ExecutionException ex) {
+          Throwable cause = ex.getCause();
+          String msg = cause instanceof MiniReaderException ? cause.getMessage() : ex.getMessage();
+          statusLabel.setText("Error loading doc: " + msg);
+        } catch (InterruptedException ex) {
+          Thread.currentThread().interrupt();
+          statusLabel.setText("Interrupted.");
         }
       }
     }.execute();
@@ -188,10 +198,13 @@ class MiniReaderFrame extends JFrame {
             }
           }
           appendChat("\n");
-        } catch (MiniReaderException ex) {
-          appendChat("MiniReader: Error: " + ex.getMessage() + "\n\n");
-        } catch (Exception ex) {
-          appendChat("MiniReader: Error: " + ex.getMessage() + "\n\n");
+        } catch (ExecutionException ex) {
+          Throwable cause = ex.getCause();
+          String msg = cause instanceof MiniReaderException ? cause.getMessage() : ex.getMessage();
+          appendChat("MiniReader: Error: " + msg + "\n\n");
+        } catch (InterruptedException ex) {
+          Thread.currentThread().interrupt();
+          appendChat("MiniReader: Interrupted.\n\n");
         } finally {
           askButton.setEnabled(true);
         }

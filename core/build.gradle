@@ -1,0 +1,10 @@
+dependencies {
+  implementation 'org.jsoup:jsoup:1.17.2'
+  implementation 'net.dankito.readability4j:readability4j:1.0.8'
+
+  implementation 'org.apache.lucene:lucene-core:9.10.0'
+  implementation 'org.apache.lucene:lucene-queryparser:9.10.0'
+  implementation 'org.apache.lucene:lucene-analysis-common:9.10.0'
+
+  implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
+}

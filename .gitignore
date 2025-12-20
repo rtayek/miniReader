@@ -1,0 +1,14 @@
+# Gradle
+.gradle/
+build/
+**/build/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# OS junk
+.DS_Store
+Thumbs.db
+

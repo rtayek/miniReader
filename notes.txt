@@ -1,0 +1,7 @@
+./gradlew :core:test
+
+Guerrilla
+
+Quick note (because you’ll hit it)
+
+Your LuceneIndex.search() uses QueryParser.escape(query) which disables query syntax—good for users, but it can weaken multi-term queries slightly. Tests above use plain text queries that still work fine.

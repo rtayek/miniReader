@@ -1,0 +1,1 @@
+{"id":"docX","url":"https://example.com/x","title":"Title X","fetchedAt":"2023-01-02T03:04:05Z","blocks":[{"type":"heading","level":1,"text":"Heading 1"},{"type":"paragraph","text":"Paragraph text."},{"type":"code","text":"code block"},{"type":"bulletedList","items":["One","Two"]}],"links":[{"text":"Example","url":"https://example.com/link"}],"plainText":"plain text"}

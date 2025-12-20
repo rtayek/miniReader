@@ -3,6 +3,9 @@ package app.core;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -41,5 +44,41 @@ class DocumentStoreTest {
     assertEquals(doc.title(), loaded.title());
     assertEquals(doc.plainText(), loaded.plainText());
     assertEquals(1, loaded.links().size());
+  }
+
+  @Test
+  void save_matchesGoldenFormat() throws Exception {
+    PathsConfig paths = new TestPathsConfig(tempDir);
+    DocumentStore store = new DocumentStore(paths);
+
+    DocumentDto doc = new DocumentDto(
+        "docX",
+        "https://example.com/x",
+        "Title X",
+        Instant.parse("2023-01-02T03:04:05Z"),
+        List.of(
+            new BlockDto.Heading(1, "Heading 1"),
+            new BlockDto.Paragraph("Paragraph text."),
+            new BlockDto.Code("code block"),
+            new BlockDto.BulletedList(List.of("One", "Two"))
+        ),
+        List.of(new LinkDto("Example", "https://example.com/link")),
+        "plain text"
+    );
+
+    store.save(doc);
+
+    Path saved = paths.docsDir().resolve("docX.json");
+    String actual = Files.readString(saved).trim();
+    String expected = readResource("document_dto.json").trim();
+
+    assertEquals(expected, actual);
+  }
+
+  private String readResource(String name) throws Exception {
+    try (InputStream in = getClass().getClassLoader().getResourceAsStream(name)) {
+      assertNotNull(in, "missing test resource: " + name);
+      return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+    }
   }
 }

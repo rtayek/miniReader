@@ -21,6 +21,22 @@ sealed interface BlockDto
             BlockDto.Code,
             BlockDto.BulletedList {
 
+    interface BlockVisitor<R> {
+      R heading(BlockDto.Heading h);
+      R paragraph(BlockDto.Paragraph p);
+      R code(BlockDto.Code c);
+      R bulletedList(BlockDto.BulletedList b);
+    }
+
+    default <R> R accept(BlockVisitor<R> v) {
+      return switch (this) {
+        case Heading h -> v.heading(h);
+        case Paragraph p -> v.paragraph(p);
+        case Code c -> v.code(c);
+        case BulletedList b -> v.bulletedList(b);
+      };
+    }
+
     /* ========= BLOCK TYPES ========= */
 
     /**

@@ -4,8 +4,10 @@ plugins {
 
 dependencies {
   implementation project(':core')
+  runtimeOnly("org.slf4j:slf4j-jdk14:2.0.16")
 }
 
 application {
   mainClass = 'app.ui.MiniReaderApp'
 }
+

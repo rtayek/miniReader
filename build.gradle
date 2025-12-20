@@ -23,6 +23,7 @@ subprojects {
   dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
   }
 
    tasks.withType(Test).configureEach {
@@ -33,4 +34,7 @@ subprojects {
     options.encoding = 'UTF-8'
     options.release = 25
   }
+  tasks.withType(Test).configureEach {
+     useJUnitPlatform()
+   }
 }

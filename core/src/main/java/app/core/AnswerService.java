@@ -30,9 +30,9 @@ class AnswerService {
         .limit(6)
         .toList();
 
-    List<AnswerDto.CitationDto> cites = top.stream()
+    List<CitationDto> cites = top.stream()
         .limit(6)
-        .map(h -> new AnswerDto.CitationDto(h.title(), h.url(), h.headingPath(), h.chunkId(), snippet(h.text())))
+        .map(h -> new CitationDto(h.title(), h.url(), h.headingPath(), h.chunkId(), snippet(h.text())))
         .toList();
 
     String summary = bullets.isEmpty()

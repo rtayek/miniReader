@@ -3,6 +3,7 @@ package app.ui;
 import app.core.AnswerDto;
 import app.core.CoreFacade;
 import app.core.DocumentDto;
+import app.core.MiniReaderException;
 
 import javax.swing.*;
 import java.awt.*;
@@ -99,6 +100,8 @@ class MiniReaderFrame extends JFrame {
             readerArea.setCaretPosition(0);
           }
           refreshDocList();
+        } catch (MiniReaderException ex) {
+          statusLabel.setText("Error: " + ex.getMessage());
         } catch (Exception ex) {
           statusLabel.setText("Error: " + ex.getMessage());
         } finally {
@@ -122,6 +125,8 @@ class MiniReaderFrame extends JFrame {
           docListModel.clear();
           for (Path p : docs) docListModel.addElement(p);
           if (!docs.isEmpty() && docList.getSelectedIndex() < 0) docList.setSelectedIndex(docs.size() - 1);
+        } catch (MiniReaderException ex) {
+          statusLabel.setText("Error listing docs: " + ex.getMessage());
         } catch (Exception ex) {
           statusLabel.setText("Error listing docs: " + ex.getMessage());
         }
@@ -146,6 +151,8 @@ class MiniReaderFrame extends JFrame {
           readerArea.setText(doc.plainText());
           readerArea.setCaretPosition(0);
           statusLabel.setText("Loaded: " + doc.title());
+        } catch (MiniReaderException ex) {
+          statusLabel.setText("Error loading doc: " + ex.getMessage());
         } catch (Exception ex) {
           statusLabel.setText("Error loading doc: " + ex.getMessage());
         }
@@ -181,6 +188,8 @@ class MiniReaderFrame extends JFrame {
             }
           }
           appendChat("\n");
+        } catch (MiniReaderException ex) {
+          appendChat("MiniReader: Error: " + ex.getMessage() + "\n\n");
         } catch (Exception ex) {
           appendChat("MiniReader: Error: " + ex.getMessage() + "\n\n");
         } finally {
@@ -199,7 +208,7 @@ class MiniReaderFrame extends JFrame {
   public void dispose() {
     try {
       core.close();
-    } catch (Exception ignored) {
+    } catch (MiniReaderException ignored) {
     }
     super.dispose();
   }

@@ -5,33 +5,38 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
-import java.util.UUID;
 
 class Extractor {
   DocumentDto extract(FetchResult fetch) {
-    Document jsoupDoc = Jsoup.parse(fetch.body(), fetch.url());
+    String canonicalUrl = canonicalizeUrl(fetch.url());
+
+    Document jsoupDoc = Jsoup.parse(fetch.body(), canonicalUrl);
     jsoupDoc.select("script,style,noscript").remove();
 
     String title = jsoupDoc.title();
     List<LinkDto> links = extractLinks(jsoupDoc);
 
-    String mainHtml = tryReadability(fetch.url(), fetch.body());
+    String mainHtml = tryReadability(canonicalUrl, fetch.body());
     if (mainHtml == null || mainHtml.isBlank()) {
       mainHtml = jsoupDoc.body() == null ? "" : jsoupDoc.body().html();
     }
 
-    Document mainDoc = Jsoup.parse(mainHtml, fetch.url());
+    Document mainDoc = Jsoup.parse(mainHtml, canonicalUrl);
     mainDoc.select("script,style,noscript").remove();
 
     List<BlockDto> blocks = new ArrayList<>();
     extractBlocks(mainDoc, blocks);
 
     String plainText = blocksToPlainText(blocks);
-    String id = UUID.randomUUID().toString();
-    return new DocumentDto(id, fetch.url(), title == null ? "" : title, Instant.now(), List.copyOf(blocks), List.copyOf(links), plainText);
+    String id = stableId(canonicalUrl);
+    return new DocumentDto(id, canonicalUrl, title == null ? "" : title, Instant.now(), List.copyOf(blocks), List.copyOf(links), plainText);
   }
 
   String tryReadability(String url, String html) {
@@ -106,16 +111,36 @@ class Extractor {
   String blocksToPlainText(List<BlockDto> blocks) {
     StringBuilder sb = new StringBuilder();
     for (BlockDto b : blocks) {
-      if (b instanceof BlockDto.Heading h) {
-        sb.append("\n").append("#".repeat(Math.max(1, Math.min(6, h.level())))).append(" ").append(h.text()).append("\n");
-      } else if (b instanceof BlockDto.Paragraph p) {
-        sb.append(p.text()).append("\n\n");
-      } else if (b instanceof BlockDto.BulletedList ul) {
-        for (String item : ul.items()) sb.append("• ").append(item).append("\n");
-        sb.append("\n");
-      } else if (b instanceof BlockDto.Code c) {
-        sb.append("```\n").append(c.text()).append("\n```\n\n");
-      }
+      b.accept(new BlockDto.BlockVisitor<Void>() {
+        @Override
+        public Void heading(BlockDto.Heading h) {
+          sb.append("\n")
+              .append("#".repeat(Math.max(1, Math.min(6, h.level()))))
+              .append(" ")
+              .append(h.text())
+              .append("\n");
+          return null;
+        }
+
+        @Override
+        public Void paragraph(BlockDto.Paragraph p) {
+          sb.append(p.text()).append("\n\n");
+          return null;
+        }
+
+        @Override
+        public Void code(BlockDto.Code c) {
+          sb.append("```\n").append(c.text()).append("\n```\n\n");
+          return null;
+        }
+
+        @Override
+        public Void bulletedList(BlockDto.BulletedList ul) {
+          for (String item : ul.items()) sb.append("• ").append(item).append("\n");
+          sb.append("\n");
+          return null;
+        }
+      });
     }
     return sb.toString().strip();
   }
@@ -123,5 +148,34 @@ class Extractor {
   String clean(String s) {
     if (s == null) return "";
     return s.replace('\u00A0', ' ').replaceAll("\\s+", " ").strip();
+  }
+
+  private String canonicalizeUrl(String url) {
+    if (url == null) return "";
+    String trimmed = url.trim();
+    try {
+      URI u = URI.create(trimmed);
+      String path = (u.getPath() == null || u.getPath().isBlank()) ? "/" : u.getPath();
+      URI normalized = new URI(
+          u.getScheme(),
+          u.getAuthority(),
+          path,
+          u.getQuery(),
+          null
+      ).normalize();
+      return normalized.toString();
+    } catch (Exception e) {
+      return trimmed;
+    }
+  }
+
+  private String stableId(String url) {
+    try {
+      MessageDigest md = MessageDigest.getInstance("SHA-256");
+      byte[] digest = md.digest(url.getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(digest);
+    } catch (Exception e) {
+      return url.isBlank() ? "unknown" : url;
+    }
   }
 }

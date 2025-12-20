@@ -4,6 +4,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
+import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.*;
 import org.apache.lucene.store.FSDirectory;
@@ -34,6 +35,8 @@ class LuceneIndex implements AutoCloseable {
       d.add(new StoredField("url", doc.url()));
       d.add(new StoredField("title", doc.title()));
       d.add(new TextField("text", c.text(), Field.Store.YES));
+      d.add(new TextField("title", doc.title() == null ? "" : doc.title(), Field.Store.NO));
+      d.add(new TextField("heading", c.headingPath() == null ? "" : c.headingPath(), Field.Store.NO));
       writer.addDocument(d);
     }
     writer.commit();
@@ -48,7 +51,7 @@ class LuceneIndex implements AutoCloseable {
     writer.commit();
     try (DirectoryReader reader = DirectoryReader.open(writer)) {
       IndexSearcher searcher = new IndexSearcher(reader);
-      QueryParser parser = new QueryParser("text", analyzer);
+      QueryParser parser = new MultiFieldQueryParser(new String[] { "text", "title", "heading" }, analyzer);
       Query q = parser.parse(QueryParser.escape(query));
 
       TopDocs docs = searcher.search(q, limit);

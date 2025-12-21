@@ -1,7 +1,7 @@
-package app.core.internal;
+package app.core;
 
-import app.core.DocumentDto;
-import app.core.MiniReaderConfig;
+import app.core.internal.ChunkDto;
+import app.core.internal.LuceneIndex;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

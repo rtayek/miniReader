@@ -106,7 +106,7 @@ public class LuceneIndex implements AutoCloseable {
     analyzer.close();
   }
 
-  record SearchHit(String docId, int chunkId, String title, String url, String headingPath, String text, float score) {}
+  public record SearchHit(String docId, int chunkId, String title, String url, String headingPath, String text, float score) {}
 
   private final Analyzer analyzer;
   private final FSDirectory directory;

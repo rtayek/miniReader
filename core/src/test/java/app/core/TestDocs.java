@@ -1,7 +1,6 @@
-package app.core.internal;
+package app.core;
 
-import app.core.BlockDto;
-import app.core.DocumentDto;
+import app.core.internal.ChunkDto;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;

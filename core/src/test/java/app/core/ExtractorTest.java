@@ -1,6 +1,7 @@
-package app.core.internal;
+package app.core;
 
-import app.core.DocumentDto;
+import app.core.internal.Extractor;
+import app.core.internal.FetchResult;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;

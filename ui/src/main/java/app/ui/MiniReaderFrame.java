@@ -80,10 +80,16 @@ class MiniReaderFrame extends JFrame {
 
   void ingestUrl() {
     String url = urlField.getText().strip();
-    if (url.isBlank()) return;
+    if (url.isBlank()) {
+      statusLabel.setText("Error: URL is empty");
+      showCopyableError(this, "Fetch failed", new IllegalArgumentException("URL is empty"));
+      return;
+    }
 
     fetchButton.setEnabled(false);
     statusLabel.setText("Fetching…");
+    readerArea.setText("");
+    readerArea.setCaretPosition(0);
 
     new SwingWorker<CoreFacade.IngestResult, Void>() {
       @Override
@@ -102,9 +108,10 @@ class MiniReaderFrame extends JFrame {
           }
           refreshDocList();
         } catch (ExecutionException ex) {
-          Throwable cause = ex.getCause();
-          String msg = cause instanceof MiniReaderException ? cause.getMessage() : ex.getMessage();
-          statusLabel.setText("Error: " + msg);
+          Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+          cause.printStackTrace();
+          statusLabel.setText("Error: " + cause.getMessage());
+          showCopyableError(MiniReaderFrame.this, "Fetch failed", cause);
         } catch (InterruptedException ex) {
           Thread.currentThread().interrupt();
           statusLabel.setText("Interrupted.");
@@ -130,9 +137,10 @@ class MiniReaderFrame extends JFrame {
           for (Path p : docs) docListModel.addElement(p);
           if (!docs.isEmpty() && docList.getSelectedIndex() < 0) docList.setSelectedIndex(docs.size() - 1);
         } catch (ExecutionException ex) {
-          Throwable cause = ex.getCause();
-          String msg = cause instanceof MiniReaderException ? cause.getMessage() : ex.getMessage();
-          statusLabel.setText("Error listing docs: " + msg);
+          Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+          cause.printStackTrace();
+          statusLabel.setText("Error listing docs: " + cause.getMessage());
+          showCopyableError(MiniReaderFrame.this, "List docs failed", cause);
         } catch (InterruptedException ex) {
           Thread.currentThread().interrupt();
           statusLabel.setText("Interrupted.");
@@ -159,9 +167,10 @@ class MiniReaderFrame extends JFrame {
           readerArea.setCaretPosition(0);
           statusLabel.setText("Loaded: " + doc.title());
         } catch (ExecutionException ex) {
-          Throwable cause = ex.getCause();
-          String msg = cause instanceof MiniReaderException ? cause.getMessage() : ex.getMessage();
-          statusLabel.setText("Error loading doc: " + msg);
+          Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+          cause.printStackTrace();
+          statusLabel.setText("Error loading doc: " + cause.getMessage());
+          showCopyableError(MiniReaderFrame.this, "Load failed", cause);
         } catch (InterruptedException ex) {
           Thread.currentThread().interrupt();
           statusLabel.setText("Interrupted.");
@@ -199,9 +208,10 @@ class MiniReaderFrame extends JFrame {
           }
           appendChat("\n");
         } catch (ExecutionException ex) {
-          Throwable cause = ex.getCause();
-          String msg = cause instanceof MiniReaderException ? cause.getMessage() : ex.getMessage();
-          appendChat("MiniReader: Error: " + msg + "\n\n");
+          Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+          cause.printStackTrace();
+          appendChat("MiniReader: Error: " + cause.getMessage() + "\n\n");
+          showCopyableError(MiniReaderFrame.this, "Ask failed", cause);
         } catch (InterruptedException ex) {
           Thread.currentThread().interrupt();
           appendChat("MiniReader: Interrupted.\n\n");

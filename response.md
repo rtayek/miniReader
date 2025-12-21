@@ -1,134 +1,149 @@
-I’ve unpacked the **current tar** and here’s the straight, no-drama status report so you can re-orient yourself.
+
+## ✅ What is now correct
+
+1. **UI wiring**
+
+   * `wireActions()` correctly calls `ingestUrl()`
+   * No phantom `fetch()` calls anymore
+   * This finally compiles cleanly as shipped
+
+2. **Tar hygiene**
+
+   * No `bin/`
+   * No `build/`
+   * No `.gradle/`
+   * `gradle/` + `libs.versions.toml` preserved
+     ✔️ This tar is finally *clean*
+
+So on tooling / packaging: **done**.
 
 ---
 
-## Where you are (ground truth)
+## ❌ What is still *not* correct (but now very focused)
 
-### ✅ Core architecture is now *correct*
-
-These things are **done and solid**:
-
-* **Intent-only UI input**
-
-  * `BaseGamePanel.handleGuess()` only:
-
-    * calls `appController.submitGuess(...)`
-    * clears the text field
-* **Single source of truth**
-
-  * UI renders exclusively from `GameUiModel`
-  * No `GuessOutcome` / domain objects flowing into views
-* **Typed UI model**
-
-  * `GameUiModel` uses:
-
-    * `GameStatusView`
-    * `DifficultyView`
-  * No stringly-typed status/difficulty logic left
-* **Events are clean**
-
-  * `GameEvent` no longer carries `Object metadata`
-  * Only `{ kind, viewModel }`
-
-This puts you in the **“boring, deterministic, testable”** zone you were aiming for.
+There are **exactly two remaining UX bugs**, both small, both in `MiniReaderFrame`.
 
 ---
 
-## What still exists (but is no longer dangerous)
+## 1️⃣ Blank URL is still a silent no-op
 
-### 🟡 Some non-game panels still import domain types
-
-I still see `import model.*` in panels like:
-
-* `GameLogPanel`
-* `GameSetupPanel`
-* `HardestWordsPanel`
-* `ProfileSetupPanel`
-* `WordSelectionPanel`
-
-This is **not a correctness problem** because:
-
-* these screens don’t drive gameplay
-* they don’t observe live game state
-* they’re mostly configuration / history / data entry
-
-So this is **cleanup debt**, not architectural debt.
-
----
-
-## The only real architectural smell left
-
-### View infers “finished” from status
-
-In `BaseGamePanel` you still have logic like:
+Still present:
 
 ```java
-if (status == waitingForFinalGuess || status == awaitingWinnerKnowledge) {
-    onGameFinished(...)
+String url = urlField.getText().strip();
+if (url.isBlank()) return;
+```
+
+This is the root of the “nothing happened / it remembered something” confusion.
+
+### Why this is wrong
+
+* The user clicks Fetch
+* Nothing visibly changes
+* Old document stays on screen
+* Persisted library still exists
+
+So the user infers “it reused the old URL”.
+
+### Required fix (non-negotiable)
+
+Replace that return with **visible failure**:
+
+```java
+if (url.isBlank()) {
+    statusLabel.setText("Error: URL is empty");
+    showCopyableError(
+        this,
+        "Fetch failed",
+        new IllegalArgumentException("URL is empty")
+    );
+    return;
 }
 ```
 
-This is minor, but conceptually:
-
-* **controller should decide when the game is finished**
-* **view should only react to `gameFinished`**
-
-It won’t break anything today, but it’s the last place where:
-
-> UI interprets game rules
+This is *not* a style issue — it’s correctness.
 
 ---
 
-## What I would do next (or *not* do)
+## 2️⃣ Copyable error dialog is still never invoked
 
-### If you want to STOP refactoring (valid choice)
+You have the helper (good):
 
-You can stop **right now** and just work on gameplay polish:
+```java
+private static void showCopyableError(Component parent, String title, Throwable ex)
+```
 
-* timers
-* sounds
-* UX flow
-* hardest-words tracking
+But in **every** `SwingWorker.done()` you still do only things like:
 
-Nothing structurally urgent is left.
+```java
+statusLabel.setText("Error: " + msg);
+appendChat("MiniReader: Error: " + msg);
+```
+
+No stack trace.
+No copyable dialog.
+Back to square one.
+
+### Required fix pattern (use everywhere you catch `ExecutionException`)
+
+```java
+} catch (ExecutionException ex) {
+    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+    cause.printStackTrace();
+    statusLabel.setText("Error: " + cause.getMessage());
+    showCopyableError(this, "Operation failed", cause);
+}
+```
+
+Apply this pattern in:
+
+* `ingestUrl().done()`
+* `refreshDocList().done()`
+* `loadSelectedDoc().done()`
+* `ask().done()` (title `"Ask failed"`)
 
 ---
 
-### If you want to finish “architectural cleanup” cleanly
+## Optional but strongly recommended (one line)
 
-Do **only these two things**:
+Clear the display **before** starting a new fetch:
 
-#### 1️⃣ Make “finished” purely event-driven
+```java
+readerArea.setText("");
+readerArea.setCaretPosition(0);
+```
 
-* Remove the status-based inference in `BaseGamePanel`
-* Ensure the controller emits `gameFinished` at the right moment
-* Let the view react only to that event
-
-This completes the “events are authoritative” story.
-
-#### 2️⃣ (Optional) DTO-ize non-game panels
-
-Slowly replace:
-
-* `model.GameLogEntry` → `GameLogView`
-* `model.WordStats` → `HardestWordView`
-
-Do this **only if/when those panels become annoying**.
+Otherwise a failed fetch still leaves old content visible, which *looks like success*.
 
 ---
 
-## One-line orientation summary
+## Where you are now
 
-You are here:
+You are **very close**. At this point:
 
-> **Event-driven Swing UI with typed DTO snapshots and intent-only input; remaining work is cosmetic or polish, not architecture.**
+* Architecture: solid
+* Core: fine
+* Fetcher: correct
+* Persistence: understood
+* Packaging: finally right
 
-That’s a very good place to be.
+What remains is **pure UI correctness**, not design.
 
-If you want, next time I can:
+Once:
 
-* sanity-check timer edge cases
-* review hardest-words data flow
-* or help you deliberately *stop refactoring* and ship features
+* blank URL is not silent
+* errors are copyable
 
-Just say which direction you want to go.
+…this entire debugging saga ends.
+
+---
+
+### My recommendation
+
+
+> “Two fixes left. No refactors.
+>
+> 1. Blank URL must show error.
+> 2. All ExecutionException handlers must call showCopyableError + printStackTrace.
+>    After that, stop.”
+

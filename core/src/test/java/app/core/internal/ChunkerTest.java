@@ -1,7 +1,8 @@
-package app.core;
+package app.core.internal;
 
-import app.core.internal.ChunkDto;
-import app.core.internal.Chunker;
+import app.core.BlockDto;
+import app.core.DocumentDto;
+import app.core.MiniReaderConfig;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

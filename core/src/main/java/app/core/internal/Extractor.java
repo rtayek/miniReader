@@ -16,10 +16,10 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 
-public class Extractor {
-  public Extractor() {}
+class Extractor {
+  Extractor() {}
 
-  public DocumentDto extract(FetchResult fetch) {
+  DocumentDto extract(FetchResult fetch) {
     String canonicalUrl = canonicalizeUrl(fetch.url());
 
     Document jsoupDoc = Jsoup.parse(fetch.body(), canonicalUrl);

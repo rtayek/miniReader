@@ -70,5 +70,9 @@ public sealed interface BlockDto
      * Arguments:
      *   items — list of bullet strings
      */
-    record BulletedList(List<String> items) implements BlockDto {}
+    record BulletedList(List<String> items) implements BlockDto {
+      public BulletedList {
+        items = List.copyOf(items);
+      }
+    }
 }

@@ -8,12 +8,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-public class Fetcher {
-  public Fetcher(MiniReaderConfig config) {
+class Fetcher {
+  Fetcher(MiniReaderConfig config) {
     this.config = config;
   }
 
-  public FetchResult fetch(String url) throws IOException, InterruptedException {
+  FetchResult fetch(String url) throws IOException, InterruptedException {
     HttpClient client = HttpClient.newBuilder()
         .followRedirects(HttpClient.Redirect.NORMAL)
         .connectTimeout(config.connectTimeout())

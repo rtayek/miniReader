@@ -27,7 +27,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
-public class LuceneIndex implements AutoCloseable {
+class LuceneIndex implements AutoCloseable {
   private static final String FIELD_DOC_ID = "docId";
   private static final String FIELD_CHUNK_ID = "chunkId";
   private static final String FIELD_HEADING = "headingPath";
@@ -37,7 +37,7 @@ public class LuceneIndex implements AutoCloseable {
   private static final String FIELD_TITLE_SEARCH = "title";
   private static final String FIELD_HEADING_SEARCH = "heading";
 
-  public LuceneIndex(MiniReaderConfig config) throws IOException {
+  LuceneIndex(MiniReaderConfig config) throws IOException {
     this.analyzer = new StandardAnalyzer();
     Files.createDirectories(config.indexDir());
     this.directory = FSDirectory.open(config.indexDir());
@@ -47,7 +47,7 @@ public class LuceneIndex implements AutoCloseable {
     this.writer = new IndexWriter(directory, cfg);
   }
 
-  public void index(DocumentDto doc, List<ChunkDto> chunks) throws IOException {
+  void index(DocumentDto doc, List<ChunkDto> chunks) throws IOException {
     deleteDoc(doc.id());
 
     for (ChunkDto c : chunks) {
@@ -65,12 +65,12 @@ public class LuceneIndex implements AutoCloseable {
     writer.commit();
   }
 
-  public void deleteDoc(String docId) throws IOException {
+  void deleteDoc(String docId) throws IOException {
     writer.deleteDocuments(new Term(FIELD_DOC_ID, docId));
     writer.commit();
   }
 
-  public List<SearchHit> search(String query, int limit) throws IOException, ParseException {
+  List<SearchHit> search(String query, int limit) throws IOException, ParseException {
     writer.commit();
     try (DirectoryReader reader = DirectoryReader.open(writer)) {
       IndexSearcher searcher = new IndexSearcher(reader);
@@ -106,7 +106,7 @@ public class LuceneIndex implements AutoCloseable {
     analyzer.close();
   }
 
-  public record SearchHit(String docId, int chunkId, String title, String url, String headingPath, String text, float score) {}
+  record SearchHit(String docId, int chunkId, String title, String url, String headingPath, String text, float score) {}
 
   private final Analyzer analyzer;
   private final FSDirectory directory;

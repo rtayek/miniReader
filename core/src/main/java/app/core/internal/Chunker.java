@@ -7,12 +7,12 @@ import app.core.MiniReaderConfig;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Chunker {
-  public Chunker(MiniReaderConfig config) {
+class Chunker {
+  Chunker(MiniReaderConfig config) {
     this.config = config;
   }
 
-  public List<ChunkDto> chunk(DocumentDto doc) {
+  List<ChunkDto> chunk(DocumentDto doc) {
     List<ChunkDto> out = new ArrayList<>();
     BlockAccumulator acc = new BlockAccumulator(doc.id(), out, config.chunkMaxChars(), config.chunkOverlapChars());
     for (BlockDto b : doc.blocks()) {

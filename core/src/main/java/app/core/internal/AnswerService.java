@@ -9,12 +9,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class AnswerService {
-  public AnswerService(LuceneIndex index) {
+class AnswerService {
+  AnswerService(LuceneIndex index) {
     this.index = index;
   }
 
-  public AnswerDto answer(String question) throws IOException, ParseException {
+  AnswerDto answer(String question) throws IOException, ParseException {
     List<LuceneIndex.SearchHit> hits = index.search(question, 8);
     if (hits.isEmpty()) {
       return new AnswerDto("No matches found in your local library.", List.of(), List.of());

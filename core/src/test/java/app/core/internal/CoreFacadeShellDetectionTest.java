@@ -19,9 +19,8 @@ class CoreFacadeShellDetectionTest {
     Extractor extractor = new Extractor();
     DocumentDto doc = extractor.extract(fetch);
 
-    try (CoreFacade core = new CoreFacade(MiniReaderConfig.fromBaseDir(Files.createTempDirectory("mr")))) {
-      assertTrue(core.looksLikeJsShell(doc.plainText()));
-    }
+    CoreRuntime runtime = CoreRuntimes.create(MiniReaderConfig.fromBaseDir(Files.createTempDirectory("mr")));
+    assertTrue(runtime.looksLikeJsShell(doc.plainText()));
   }
 
   String readFixture(String name) throws Exception {

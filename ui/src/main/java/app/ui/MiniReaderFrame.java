@@ -225,6 +225,26 @@ class MiniReaderFrame extends JFrame {
     }
     super.dispose();
   }
+  
+  private static void showCopyableError(java.awt.Component parent, String title, Throwable ex) {
+	    java.io.StringWriter sw = new java.io.StringWriter();
+	    ex.printStackTrace(new java.io.PrintWriter(sw));
+
+	    javax.swing.JTextArea area = new javax.swing.JTextArea(18, 90);
+	    area.setText(sw.toString());
+	    area.setCaretPosition(0);
+	    area.setEditable(false);
+
+	    javax.swing.JScrollPane scroll = new javax.swing.JScrollPane(area);
+
+	    javax.swing.JOptionPane.showMessageDialog(
+	        parent,
+	        scroll,
+	        title,
+	        javax.swing.JOptionPane.ERROR_MESSAGE
+	    );
+	}
+
 
   private final CoreFacade core;
 

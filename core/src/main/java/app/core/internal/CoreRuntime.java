@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
-class CoreRuntime implements AutoCloseable {
+public class CoreRuntime implements AutoCloseable {
   CoreRuntime(MiniReaderConfig config) throws IOException {
     this.fetcher = new Fetcher(config);
     this.extractor = new Extractor();
@@ -70,15 +70,6 @@ class CoreRuntime implements AutoCloseable {
     } catch (IOException | org.apache.lucene.queryparser.classic.ParseException e) {
       throw new MiniReaderException("Failed to answer question", e);
     }
-  }
-
-  boolean looksLikeJsShell(String plainText) {
-    String t = plainText == null ? "" : plainText.strip();
-    if (t.length() >= JS_SHELL_MAX_LENGTH) return false;
-    String lower = t.toLowerCase();
-    return lower.contains("enable javascript")
-        || lower.contains("loading")
-        || lower.isBlank();
   }
 
   @Override

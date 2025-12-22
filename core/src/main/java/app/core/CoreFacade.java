@@ -1,10 +1,8 @@
 package app.core;
 
 import app.core.internal.CoreRuntime;
-import app.core.internal.CoreRuntime.IngestResult;
 import app.core.internal.CoreRuntimes;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 
@@ -18,17 +16,16 @@ public class CoreFacade implements AutoCloseable {
     this.runtime = CoreRuntimes.create(config);
   }
 
-  public IngestResult ingestUrl(String url) throws MiniReaderException {
-    CoreRuntime.IngestResult r = runtime.ingestUrl(url);
-    return new IngestResult(r.doc(), r.message());
+  public IngestOutcome ingestUrl(String url) throws MiniReaderException {
+    return runtime.ingestUrl(url);
   }
 
-  public List<Path> listSavedDocs() throws MiniReaderException {
+  public List<SavedDocDto> listSavedDocs() throws MiniReaderException {
     return runtime.listSavedDocs();
   }
 
-  public DocumentDto loadSavedDoc(Path file) throws MiniReaderException {
-    return runtime.loadSavedDoc(file);
+  public DocumentDto loadSavedDoc(String id) throws MiniReaderException {
+    return runtime.loadSavedDoc(id);
   }
 
   public AnswerDto ask(String question) throws MiniReaderException {
@@ -43,8 +40,6 @@ public class CoreFacade implements AutoCloseable {
   boolean looksLikeJsShell(String plainText) {
     return runtime.looksLikeJsShell(plainText);
   }
-
-  public record IngestResult(DocumentDto doc, String message) {}
 
   private final CoreRuntime runtime;
   private final MiniReaderConfig config;

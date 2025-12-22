@@ -1,134 +1,146 @@
-Checked it. **This one finally passes.** ✔️
+I reviewed the **new tar** specifically against the “major refactorings” we discussed, not UI minutiae. Here’s the honest assessment.
 
-### What’s correct now
+---
 
-* ✅ **Tar hygiene is clean**
+## Overall verdict
 
-  * No `bin/`
-  * No `build/`
-  * No `.gradle/`
-  * `gradle/` + `libs.versions.toml` preserved
-    → This archive is portable and won’t resurrect stale state.
+This is now in **good architectural shape**. Nothing is screaming “must refactor now.” What remains are **strategic improvements**, not correctness fixes.
 
-* ✅ **UI behavior is sane**
+You’re past the unstable phase.
 
-  * Blank URL → visible, copyable error
-  * Errors everywhere → stack trace + copyable dialog
-  * New Fetch clears old content first
-  * No phantom `fetch()` wiring issues
+---
 
-* ✅ **Persistence model is clear**
+## What’s genuinely solid now
 
-  * Library persists in `~/.miniReader`
-  * UI no longer lies about what was fetched “this session”
+### 1) Core / UI boundary is real
 
-### Net result
+* UI talks to `CoreFacade`
+* DTOs cross the boundary
+* Internals stay internal
+* No Lucene, filesystem, or parsing types leak into UI logic
 
-The original pain points are actually gone:
+This is the hard part. You did it.
 
-* no “haunted” behavior
-* no silent no-ops
-* no uncopyable errors
-* no stale build artifacts sneaking in
+### 2) Persistence model is coherent
 
-This is the point where you **stop iterating on this loop**.
+* `~/.miniReader` is a clear library boundary
+* Startup behavior is explicit
+* No more “haunted” UI effects
 
-### Recommendation
+### 3) Error handling is finally correct
 
-Tag this state. You’ve earned it:
+* Exceptions propagate to a single UI choke point
+* Errors are copyable
+* Silent no-ops are gone
 
-```bash
-git tag -a v0.2-ui-sane -m "UI fixes: copyable errors, no silent fetch, clean tar, sane startup"
-git push origin v0.2-ui-sane
+This alone eliminates an entire class of future debugging pain.
+
+---
+
+## Remaining refactorings (ranked by value)
+
+### 🥇 1) Remove `Path` from the public API (still the biggest win)
+
+You still expose filesystem concepts via `CoreFacade`:
+
+```java
+List<Path> listSavedDocs();
+DocumentDto loadSavedDoc(Path p);
 ```
 
-From here on, any further changes should be **feature-driven**, not cleanup-driven:
+This is **the** architectural limitation if you ever want:
 
-* Clear Library button
-* Ask scope toggle (selected doc vs all)
-* Remote/CLI client
-* Better doc list metadata
+* a remote client
+* a CLI running elsewhere
+* a web front end
 
-But as far as this debugging saga goes: **done**.
+**Refactor direction (minimal disruption):**
 
-second prompt:
+* Introduce `SavedDocRefDto { id, title, url, fetchedAt }`
+* `listSavedDocs()` returns refs
+* `loadSavedDoc(ref.id())`
 
-Stop leaking Path through the public API
+This is a *pure API refactor*; internals don’t have to change much.
 
-Right now CoreFacade exposes:
+If you do only one more refactor ever, make it this one.
 
-List<Path> listSavedDocs()
+---
 
-DocumentDto loadSavedDoc(Path file)
+### 🥈 2) Make ingest outcomes explicit (not null + message)
 
-That’s fine for a local Swing app, but it’s a dead end for:
+Right now ingestion success/failure is still partially “stringly”:
 
-remote player/client
+* message text
+* sometimes null doc
+* caller infers meaning
 
-web/mobile
+This is fine locally, but brittle for other clients.
 
-even a CLI you run on a different machine
+**Refactor direction:**
 
-Refactor: replace Path with a small DTO or opaque ID.
+* sealed `IngestOutcome`
+* UI switches on type, not message text
 
-Example direction:
+This improves clarity but is not urgent.
 
-List<SavedDocDto> listSavedDocs() where SavedDocDto contains:
+---
 
-id, title, url, fetchedAt, maybe summary
+### 🥉 3) Centralize fetch/index configuration
 
-DocumentDto loadSavedDoc(String id) (or loadSavedDoc(SavedDocRefDto ref))
+You’re already close here.
 
-This turns your core into an actual library/service boundary instead of “UI helper around a filesystem”.
+What’s left:
 
-2) Make IngestResult a real result type (no null doc, no stringly messages)
+* ensure **all** tuning knobs live in `MiniReaderConfig`
+* no magic numbers in Fetcher / Chunker / Index
 
-You currently do the classic “doc might be null; message explains why” thing.
+This is polish, not necessity.
 
-That works, but it’s sloppy for consumers and will metastasize.
+---
 
-Refactor: use a sealed/enum-ish outcome.
+## What I would *not* refactor now
 
-Example shape:
+❌ Don’t over-abstract Lucene yet
+❌ Don’t introduce observers/events
+❌ Don’t generalize for web/mobile prematurely
+❌ Don’t replace exceptions with `Optional`/result monads
 
-IngestOutcome.savedIndexed(doc, chunkCount)
+All of those would be speculative and add complexity without pressure.
 
-IngestOutcome.rejectedNonHtml(reason)
+---
 
-IngestOutcome.jsShell(doc, reason)
+## Where you actually are (important perspective)
 
-IngestOutcome.httpError(code, snippet)
+You now have:
 
-Now the UI (or remote client) can switch on outcomes instead of parsing message strings and checking for null.
+* a library-quality core
+* a working desktop client
+* persistent storage
+* clean boundaries
+* a tagged, reproducible state
 
-3) Clean up Fetcher: reuse HttpClient and delete debug prints
+That’s **already success**.
 
-Your Fetcher.fetch() currently:
+The next architectural pressure should come from:
 
-rebuilds HttpClient every call
+* adding a CLI
+* adding a remote client
+* or real usage data
 
-prints request/code/content-type with System.out.println + flush
+Not from refactoring for its own sake.
 
-That’s fine for debugging but not architecture.
+---
 
-Refactor:
+## My recommendation
 
-HttpClient becomes a field created once in the constructor
+1. **Tag this state** (you already did — good).
+2. Do **one** more refactor: remove `Path` from the public API.
+3. Then stop and use it.
 
-replace prints with either:
+If you want, next time we can:
 
-nothing (preferred), or
+* sketch the remote protocol in 10 minutes, or
+* design the `SavedDocRefDto` cleanly, or
+* decide to leave it alone and call it “done”.
 
-a tiny Logger interface / listener (if you want UI status updates later)
-
-This will make behavior more consistent and removes “why is it printing sometimes” confusion.
-
-Honorable mention: move URL canonicalization + ID generation into a factory
-
-Right now Extractor is doing invariants work (canonicalizing URL, hashing, etc.). That’s okay, but it’s a hidden contract.
-
-If you want to tighten correctness:
-
-DocumentDto gets a static DocumentDto.fromExtracted(...) factory that computes/validates id/url invariants.
-
-Not urgent, but it’s a good “make invalid states unrepresentable” step.
+At this point, any further refactoring is a choice, not a requirement.

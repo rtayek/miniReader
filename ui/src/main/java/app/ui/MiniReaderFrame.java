@@ -3,11 +3,13 @@ package app.ui;
 import app.core.AnswerDto;
 import app.core.CoreFacade;
 import app.core.DocumentDto;
+import app.core.IngestOutcome;
 import app.core.MiniReaderException;
+import app.core.SavedDocDto;
 
 import javax.swing.*;
 import java.awt.*;
-import java.nio.file.Path;
+import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
 class MiniReaderFrame extends JFrame {
@@ -91,22 +93,17 @@ class MiniReaderFrame extends JFrame {
     readerArea.setText("");
     readerArea.setCaretPosition(0);
 
-    new SwingWorker<CoreFacade.IngestResult, Void>() {
+    new SwingWorker<IngestOutcome, Void>() {
       @Override
-      protected CoreFacade.IngestResult doInBackground() throws Exception {
+      protected IngestOutcome doInBackground() throws Exception {
         return core.ingestUrl(url);
       }
 
       @Override
       protected void done() {
         try {
-          CoreFacade.IngestResult r = get();
-          statusLabel.setText(r.message());
-          if (r.doc() != null) {
-            readerArea.setText(r.doc().plainText());
-            readerArea.setCaretPosition(0);
-          }
-          refreshDocList();
+          IngestOutcome outcome = get();
+          handleIngestOutcome(outcome);
         } catch (ExecutionException ex) {
           Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
           cause.printStackTrace();
@@ -123,18 +120,18 @@ class MiniReaderFrame extends JFrame {
   }
 
   void refreshDocList() {
-    new SwingWorker<java.util.List<Path>, Void>() {
+    new SwingWorker<java.util.List<SavedDocDto>, Void>() {
       @Override
-      protected java.util.List<Path> doInBackground() throws Exception {
+      protected java.util.List<SavedDocDto> doInBackground() throws Exception {
         return core.listSavedDocs();
       }
 
       @Override
       protected void done() {
         try {
-          java.util.List<Path> docs = get();
+          java.util.List<SavedDocDto> docs = get();
           docListModel.clear();
-          for (Path p : docs) docListModel.addElement(p);
+          for (SavedDocDto d : docs) docListModel.addElement(d);
           if (!docs.isEmpty() && docList.getSelectedIndex() < 0) docList.setSelectedIndex(docs.size() - 1);
         } catch (ExecutionException ex) {
           Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
@@ -150,13 +147,13 @@ class MiniReaderFrame extends JFrame {
   }
 
   void loadSelectedDoc() {
-    Path p = docList.getSelectedValue();
+    SavedDocDto p = docList.getSelectedValue();
     if (p == null) return;
 
     new SwingWorker<DocumentDto, Void>() {
       @Override
       protected DocumentDto doInBackground() throws Exception {
-        return core.loadSavedDoc(p);
+        return core.loadSavedDoc(p.id());
       }
 
       @Override
@@ -227,6 +224,33 @@ class MiniReaderFrame extends JFrame {
     chatArea.setCaretPosition(chatArea.getDocument().getLength());
   }
 
+  private void handleIngestOutcome(IngestOutcome outcome) {
+    if (outcome instanceof IngestOutcome.SavedIndexed saved) {
+      statusLabel.setText("Saved + indexed (" + saved.chunkCount() + " chunks).");
+      if (saved.doc() != null) {
+        readerArea.setText(saved.doc().plainText());
+        readerArea.setCaretPosition(0);
+      }
+      refreshDocList();
+    } else if (outcome instanceof IngestOutcome.JsShell shell) {
+      statusLabel.setText(shell.reason());
+      if (shell.doc() != null) {
+        readerArea.setText(shell.doc().plainText());
+        readerArea.setCaretPosition(0);
+      }
+      refreshDocList();
+    } else if (outcome instanceof IngestOutcome.RejectedNonHtml rej) {
+      statusLabel.setText("Unsupported content-type: " + rej.contentType());
+      showCopyableError(this, "Fetch failed", new IllegalArgumentException("Unsupported content-type: " + rej.contentType()));
+    } else if (outcome instanceof IngestOutcome.HttpError http) {
+      statusLabel.setText("HTTP " + http.statusCode());
+      showCopyableError(this, "Fetch failed", new IOException("HTTP " + http.statusCode() + "\n" + http.snippet()));
+    } else if (outcome instanceof IngestOutcome.FetchError fe) {
+      statusLabel.setText("Fetch error: " + fe.message());
+      showCopyableError(this, "Fetch failed", new IOException(fe.message()));
+    }
+  }
+
   @Override
   public void dispose() {
     try {
@@ -260,9 +284,9 @@ class MiniReaderFrame extends JFrame {
 
   private JButton askButton;
   private JButton fetchButton;
-  private DefaultListModel<Path> docListModel;
+  private DefaultListModel<SavedDocDto> docListModel;
   private JLabel statusLabel;
-  private JList<Path> docList;
+  private JList<SavedDocDto> docList;
   private JTextArea chatArea;
   private JTextArea readerArea;
   private JTextField chatInput;

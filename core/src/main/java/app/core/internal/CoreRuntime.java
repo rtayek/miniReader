@@ -2,11 +2,12 @@ package app.core.internal;
 
 import app.core.AnswerDto;
 import app.core.DocumentDto;
+import app.core.IngestOutcome;
 import app.core.MiniReaderConfig;
 import app.core.MiniReaderException;
+import app.core.SavedDocDto;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 
@@ -21,31 +22,32 @@ public class CoreRuntime implements AutoCloseable {
     this.answerService = new AnswerService(index);
   }
 
-  public IngestResult ingestUrl(String url) throws MiniReaderException {
+  public IngestOutcome ingestUrl(String url) throws MiniReaderException {
     try {
       FetchResult fetch = fetch(url);
-      String validation = validateFetch(url, fetch);
-      if (validation != null) return new IngestResult(null, validation);
+      IngestOutcome validation = validateFetch(fetch);
+      if (validation != null) return validation;
 
       DocumentDto doc = extract(fetch);
 
       String shellMsg = detectShell(doc);
-      if (shellMsg != null) return new IngestResult(doc, shellMsg);
+      if (shellMsg != null) return new IngestOutcome.JsShell(doc, shellMsg);
 
       List<ChunkDto> chunks = chunk(doc);
       persist(doc);
       indexChunks(doc, chunks);
 
-      return new IngestResult(doc, "Saved + indexed (" + chunks.size() + " chunks).");
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new MiniReaderException("Failed to ingest URL: " + url, e);
-    } catch (IOException e) {
-      throw new MiniReaderException("Failed to ingest URL: " + url, e);
+      return new IngestOutcome.SavedIndexed(doc, chunks.size());
+    } catch (Exception e) {
+      if (e instanceof InterruptedException ie) {
+        Thread.currentThread().interrupt();
+        return new IngestOutcome.FetchError("Interrupted fetching " + url);
+      }
+      return new IngestOutcome.FetchError(e.getMessage() == null ? "Fetch failed" : e.getMessage());
     }
   }
 
-  public List<Path> listSavedDocs() throws MiniReaderException {
+  public List<SavedDocDto> listSavedDocs() throws MiniReaderException {
     try {
       return store.list();
     } catch (IOException e) {
@@ -53,11 +55,11 @@ public class CoreRuntime implements AutoCloseable {
     }
   }
 
-  public DocumentDto loadSavedDoc(Path file) throws MiniReaderException {
+  public DocumentDto loadSavedDoc(String id) throws MiniReaderException {
     try {
-      return store.load(file);
+      return store.load(id);
     } catch (IOException e) {
-      throw new MiniReaderException("Failed to load saved doc: " + file, e);
+      throw new MiniReaderException("Failed to load saved doc: " + id, e);
     }
   }
 
@@ -91,12 +93,12 @@ public class CoreRuntime implements AutoCloseable {
     return fetcher.fetch(url);
   }
 
-  private String validateFetch(String url, FetchResult fetch) {
+  private IngestOutcome validateFetch(FetchResult fetch) {
     if (fetch.statusCode() < 200 || fetch.statusCode() >= 300) {
-      return "HTTP " + fetch.statusCode() + " for " + url;
+      return new IngestOutcome.HttpError(fetch.statusCode(), snippet(fetch.body()));
     }
     if (!fetch.contentType().toLowerCase().contains("text/html") && !fetch.contentType().isBlank()) {
-      return "Unsupported content-type: " + fetch.contentType();
+      return new IngestOutcome.RejectedNonHtml(fetch.contentType());
     }
     return null;
   }
@@ -124,8 +126,11 @@ public class CoreRuntime implements AutoCloseable {
   private void indexChunks(DocumentDto doc, List<ChunkDto> chunks) throws IOException {
     index.index(doc, chunks);
   }
-
-  public record IngestResult(DocumentDto doc, String message) {}
+  
+  private String snippet(String body) {
+    if (body == null) return "";
+    return body.substring(0, Math.min(body.length(), 400));
+  }
 
   private final AnswerService answerService;
   private final Chunker chunker;

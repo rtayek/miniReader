@@ -4,6 +4,7 @@ import app.core.BlockDto;
 import app.core.DocumentDto;
 import app.core.LinkDto;
 import app.core.MiniReaderConfig;
+import app.core.SavedDocDto;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -39,10 +40,10 @@ class DocumentStoreTest {
 
     store.save(doc);
 
-    List<Path> files = store.list();
+    List<SavedDocDto> files = store.list();
     assertEquals(1, files.size());
 
-    DocumentDto loaded = store.load(files.getFirst());
+    DocumentDto loaded = store.load(files.getFirst().id());
     assertEquals(doc.id(), loaded.id());
     assertEquals(doc.url(), loaded.url());
     assertEquals(doc.title(), loaded.title());

@@ -9,9 +9,7 @@ import app.core.SavedDocDto;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Objects;
-
-public class CoreRuntime implements AutoCloseable {
+class CoreRuntime implements CoreRuntimeApi {
   CoreRuntime(MiniReaderConfig config) throws IOException {
     this.fetcher = new Fetcher(config);
     this.extractor = new Extractor();
@@ -21,12 +19,23 @@ public class CoreRuntime implements AutoCloseable {
     this.answerService = new AnswerService(index);
   }
 
+  @Override
   public IngestOutcome ingestUrl(String url) throws MiniReaderException {
+    FetchResult fetch;
     try {
-      FetchResult fetch = fetch(url);
-      IngestOutcome validation = validateFetch(fetch);
-      if (validation != null) return validation;
+      fetch = fetch(url);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MiniReaderException("Interrupted fetching " + url, e);
+    } catch (IOException e) {
+      String msg = e.getMessage() == null ? "Fetch failed" : e.getMessage();
+      return new IngestOutcome.FetchError(msg, e.getClass().getSimpleName());
+    }
 
+    IngestOutcome validation = validateFetch(fetch);
+    if (validation != null) return validation;
+
+    try {
       DocumentDto doc = extract(fetch);
 
       String shellMsg = detectShell(doc);
@@ -37,17 +46,12 @@ public class CoreRuntime implements AutoCloseable {
       indexChunks(doc, chunks);
 
       return new IngestOutcome.SavedIndexed(doc, chunks.size());
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new MiniReaderException("Interrupted fetching " + url, e);
-    } catch (IOException e) {
-      String msg = e.getMessage() == null ? "Fetch failed" : e.getMessage();
-      return new IngestOutcome.FetchError(msg, e.getClass().getSimpleName());
-    } catch (Exception e) {
+    } catch (IOException | RuntimeException e) {
       throw new MiniReaderException("Failed to ingest URL: " + url, e);
     }
   }
 
+  @Override
   public List<SavedDocDto> listSavedDocs() throws MiniReaderException {
     try {
       return store.list();
@@ -56,6 +60,7 @@ public class CoreRuntime implements AutoCloseable {
     }
   }
 
+  @Override
   public DocumentDto loadSavedDoc(String id) throws MiniReaderException {
     try {
       return store.load(id);
@@ -64,6 +69,7 @@ public class CoreRuntime implements AutoCloseable {
     }
   }
 
+  @Override
   public AnswerDto ask(String question) throws MiniReaderException {
     try {
       return answerService.answer(question);
@@ -89,7 +95,7 @@ public class CoreRuntime implements AutoCloseable {
     if (fetch.statusCode() < 200 || fetch.statusCode() >= 300) {
       return new IngestOutcome.HttpError(fetch.statusCode(), snippet(fetch.body()));
     }
-    if (!fetch.contentType().toLowerCase().contains("text/html") && !fetch.contentType().isBlank()) {
+    if (!isHtmlContentType(fetch.contentType()) && !fetch.contentType().isBlank()) {
       return new IngestOutcome.RejectedNonHtml(fetch.contentType());
     }
     return null;
@@ -122,6 +128,11 @@ public class CoreRuntime implements AutoCloseable {
   private String snippet(String body) {
     if (body == null) return "";
     return body.substring(0, Math.min(body.length(), ERROR_SNIPPET_CHARS));
+  }
+
+  private boolean isHtmlContentType(String contentType) {
+    String ct = contentType == null ? "" : contentType.toLowerCase();
+    return ct.contains("text/html") || ct.contains("application/xhtml+xml");
   }
 
   private static final int ERROR_SNIPPET_CHARS = 400;

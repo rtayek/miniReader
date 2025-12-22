@@ -1,6 +1,6 @@
 package app.core;
 
-import app.core.internal.CoreRuntime;
+import app.core.internal.CoreRuntimeApi;
 import app.core.internal.CoreRuntimes;
 
 import java.util.List;
@@ -36,5 +36,5 @@ public class CoreFacade implements AutoCloseable {
     runtime.close();
   }
 
-  private final CoreRuntime runtime;
+  private final CoreRuntimeApi runtime;
 }

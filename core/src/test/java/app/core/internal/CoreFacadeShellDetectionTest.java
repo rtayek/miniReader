@@ -19,7 +19,6 @@ class CoreFacadeShellDetectionTest {
     Extractor extractor = new Extractor();
     DocumentDto doc = extractor.extract(fetch);
 
-    CoreRuntime runtime = CoreRuntimes.create(MiniReaderConfig.fromBaseDir(Files.createTempDirectory("mr")));
     assertTrue(ShellHeuristics.looksLikeJsShell(doc.plainText()));
   }
 

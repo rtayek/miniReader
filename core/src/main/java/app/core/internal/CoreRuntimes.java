@@ -8,7 +8,7 @@ import java.io.IOException;
 public final class CoreRuntimes {
   private CoreRuntimes() {}
 
-  public static CoreRuntime create(MiniReaderConfig config) throws MiniReaderException {
+  public static CoreRuntimeApi create(MiniReaderConfig config) throws MiniReaderException {
     try {
       return new CoreRuntime(config);
     } catch (IOException e) {

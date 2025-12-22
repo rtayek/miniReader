@@ -11,9 +11,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
-public class CoreRuntime implements AutoCloseable {
+class CoreRuntime implements AutoCloseable {
   CoreRuntime(MiniReaderConfig config) throws IOException {
-    this.config = Objects.requireNonNull(config, "config");
     this.fetcher = new Fetcher(config);
     this.extractor = new Extractor();
     this.chunker = new Chunker(config);
@@ -38,13 +37,14 @@ public class CoreRuntime implements AutoCloseable {
       indexChunks(doc, chunks);
 
       return new IngestOutcome.SavedIndexed(doc, chunks.size());
-    } catch (Exception e) {
-      if (e instanceof InterruptedException ie) {
-        Thread.currentThread().interrupt();
-        return new IngestOutcome.FetchError("Interrupted fetching " + url, e.getClass().getSimpleName());
-      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MiniReaderException("Interrupted fetching " + url, e);
+    } catch (IOException e) {
       String msg = e.getMessage() == null ? "Fetch failed" : e.getMessage();
       return new IngestOutcome.FetchError(msg, e.getClass().getSimpleName());
+    } catch (Exception e) {
+      throw new MiniReaderException("Failed to ingest URL: " + url, e);
     }
   }
 
@@ -109,7 +109,7 @@ public class CoreRuntime implements AutoCloseable {
   }
 
   private String detectShell(DocumentDto doc) throws IOException {
-    if (looksLikeJsShell(doc.plainText())) {
+    if (ShellHeuristics.looksLikeJsShell(doc.plainText())) {
       store.save(doc);
       return "This page looks JS-rendered (SPA shell). Extracted text may be empty.";
     }
@@ -134,7 +134,6 @@ public class CoreRuntime implements AutoCloseable {
   }
 
   private static final int ERROR_SNIPPET_CHARS = 400;
-  private static final int JS_SHELL_MAX_LENGTH = 250;
 
   private final AnswerService answerService;
   private final Chunker chunker;
@@ -142,5 +141,4 @@ public class CoreRuntime implements AutoCloseable {
   private final Extractor extractor;
   private final Fetcher fetcher;
   private final LuceneIndex index;
-  private final MiniReaderConfig config;
 }

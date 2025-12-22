@@ -12,8 +12,7 @@ public class CoreFacade implements AutoCloseable {
   }
 
   public CoreFacade(MiniReaderConfig config) throws MiniReaderException {
-    this.config = Objects.requireNonNull(config, "config");
-    this.runtime = CoreRuntimes.create(config);
+    this.runtime = CoreRuntimes.create(Objects.requireNonNull(config, "config"));
   }
 
   public IngestOutcome ingestUrl(String url) throws MiniReaderException {
@@ -38,5 +37,4 @@ public class CoreFacade implements AutoCloseable {
   }
 
   private final CoreRuntime runtime;
-  private final MiniReaderConfig config;
 }

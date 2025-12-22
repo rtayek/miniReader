@@ -1,135 +1,296 @@
-I examined **this tar** with the assumption that you’re asking:
+Alright, I cracked open the tar and here’s a **high-level refactoring analysis + recommendations**. No bikeshedding, no “rewrite in Rust” nonsense — just structural moves that will actually pay rent.
 
-> “Did anything regress, and are there any *remaining* structural problems worth fixing?”
+I’m assuming your **design intent** (from recent chats and the code layout) is:
 
-### Short answer
+* Controller = intent-only
+* Views render from DTOs only
+* Domain logic isolated
+* Event-driven UI updates
+* CLI + JavaFX share the same core
 
-**No regressions. No new architectural red flags.**
-You are now firmly in **“architecture is done”** territory.
-
-Below is the *final* clean assessment so you can stop looping on this.
-
----
-
-## What is now objectively correct
-
-### ✅ Public API boundary
-
-* `CoreFacade` exposes **IDs / DTOs**, not filesystem paths
-* No UI-visible Lucene, I/O, or parsing concepts
-* This is now safe for:
-
-  * CLI
-  * remote service
-  * alternate UIs
-
-This was the last “big” architectural blocker. It’s gone.
+Good news: you’re **mostly there**. Bad news: a few seams are still leaking.
 
 ---
 
-### ✅ Outcome typing (huge win)
+## 1. Architecture Snapshot (what you actually have)
 
-`IngestOutcome` is now:
+### Packages (simplified)
 
-* explicit
-* exhaustively switchable
-* non-stringly
-* non-null
+```
+src/
+ ├─ controller/
+ │   ├─ AppController
+ │   ├─ AppFactory
+ │   ├─ DictionaryService
+ │   ├─ api/
+ │   └─ events/          <-- DTO + event soup
+ │
+ ├─ domain/              <-- Game logic, state, rules
+ │
+ ├─ ui/
+ │   ├─ cli/
+ │   └─ swing / javafx?  <-- varies by branch
+ │
+ └─ resources/
+```
 
-That eliminates:
+### What’s *working*
 
-* UI inference
-* magic strings
-* null checks
-* future combinatorial bugs
+* DTO-only rendering is **mostly enforced**
+* `controller.events.*` is clean and readable
+* CLI is thin (good)
+* Views are no longer mutating domain state (also good)
 
-This is *exactly* what you want before adding another client.
+### What’s still off
 
----
-
-### ✅ Fetch / ingest / index layering
-
-* `Fetcher` does HTTP only
-* Extractor does extraction
-* Indexer indexes
-* Facade orchestrates
-
-There is no accidental coupling left.
-
----
-
-### ✅ UI is now honest
-
-* Blank input is not silent
-* Errors are copyable
-* Old content is cleared
-* Persistence is explicit
-
-No more “haunted” behavior.
+* Controller still knows too much
+* Events + DTOs are mixed together
+* Game lifecycle logic is smeared across classes
+* Timer logic leaks everywhere
+* AppFactory is doing too many jobs
 
 ---
 
-## Remaining notes (not refactor mandates)
+## 2. Top-Priority Refactorings (do these first)
 
-These are **optional polish**, not “you should do this now”.
+### 🔥 1. Split **Events** from **Views**
 
-### 1) `looksLikeJsShell(...)` on `CoreFacade`
+Right now:
 
-As noted earlier:
+```
+controller/events/
+ ├─ GameEvent
+ ├─ GameUiModel
+ ├─ GuessView
+ ├─ KeyboardView
+ └─ ...
+```
 
-* it’s internal logic
-* it no longer belongs on the facade
-* safe to delete or move fully internal
+This is *conceptually wrong*, even if it works.
 
-This is a *tidiness* issue, not correctness.
+#### Fix
 
-### 2) `.gradle/` still appears occasionally in tars
+Split into:
 
-Not code-related.
-You already know the exclude fix.
-Not worth spending more cycles on unless you’re publishing releases.
+```
+controller/events/      // things that happened
+controller/views/       // immutable render models
+```
 
----
+Example:
 
-## What I would *not* change
+```java
+// events
+sealed interface GameEvent { }
 
-Very explicitly:
+record GuessAccepted(...) implements GameEvent { }
+record GameWon(...) implements GameEvent { }
 
-❌ No observer/event system
-❌ No async core API
-❌ No Lucene abstraction layer
-❌ No Optional-based error signaling
-❌ No web/mobile pre-design
+// views
+record GuessView(...) { }
+record KeyboardView(...) { }
+```
 
-All of those would be **pure speculation** at this point.
+**Why this matters**
 
----
+* Events are causal
+* Views are descriptive
+* Mixing them guarantees future coupling bugs
 
-## Where you actually are now (important)
-
-You now have:
-
-* a stable, layered core
-* explicit outcomes
-* a clean DTO boundary
-* a sane UI
-* persistent storage
-* reproducible builds
-* tagged milestones
-
-That’s a **complete tool**, not a “work in progress architecture”.
-
-The correct next step is **use**, not refactor.
+This one change alone will simplify everything downstream.
 
 ---
 
-## My recommendation (final)
+### 🔥 2. Make AppController *strictly* intent-only
 
-Pick one and only one of these:
+You’re *close*, but not ruthless enough.
 
-1. **Freeze architecture** and start using it
-2. Add a **CLI** (lowest friction, high signal)
-3. Sketch a **remote protocol** (no code yet)
+**Rule**
 
-If you want me involved next, say which one.
-Otherwise: you’re done — and that’s a good thing.
+> AppController methods should:
+>
+> * return `void`
+> * never return DTOs
+> * never branch on UI state
+
+Bad smell:
+
+```java
+GuessResultView submitGuess(String guess)
+```
+
+Good:
+
+```java
+void submitGuess(String guess)
+```
+
+Then:
+
+```
+submitGuess()
+  -> GameSessionService
+  -> emits GameEvent(s)
+  -> presenter maps events → views
+  -> listeners repaint
+```
+
+If you ever feel tempted to “just return something useful” — don’t. That’s how MVC rot begins.
+
+---
+
+### 🔥 3. Introduce a real **Presenter / Mapper**
+
+You currently have mapping logic spread across:
+
+* controller
+* GameOutcomePresenter
+* bits of UI
+
+That’s entropy.
+
+#### Add:
+
+```
+controller/presenter/
+ └─ GameUiModelMapper
+```
+
+Responsibilities:
+
+* Domain → Event
+* Event → View DTO
+
+Example:
+
+```java
+KeyboardView mapKeyboard(GameState state)
+GuessView mapGuess(GuessResult result)
+```
+
+**Payoff**
+
+* UI becomes dumb (good)
+* Controller becomes smaller
+* Tests get trivial
+
+---
+
+## 3. Medium-Priority Fixes (still important)
+
+### 4. Extract a `TimerCoordinator`
+
+Timer logic is currently:
+
+* half in controller
+* half in UI
+* half implied (yes, that’s 150%)
+
+Create:
+
+```java
+final class TimerCoordinator {
+    void start(Duration d);
+    void stop();
+}
+```
+
+Controller triggers it via intent.
+UI only listens to `TimerTickEvent`.
+
+No UI threads, no domain clocks, no nonsense.
+
+---
+
+### 5. Narrow GameState mutability (evil twin was right here)
+
+You still allow too many setters.
+
+**Do this:**
+
+* Make GameState setters package-private
+* Only `GameSessionService` mutates state
+* Controller calls intent methods only
+
+This prevents “helpful” future-you from mutating state from UI code at 2 AM.
+
+---
+
+### 6. AppFactory is doing too much
+
+It currently:
+
+* wires dependencies
+* chooses UI
+* initializes services
+
+Split it:
+
+```
+AppFactory        → object graph
+UiLauncher        → CLI vs GUI
+GameBootstrap     → initial state
+```
+
+Factories should *assemble*, not *decide*.
+
+---
+
+## 4. Low-Priority / Nice-to-Have
+
+### 7. Seal your DTOs
+
+Where possible:
+
+```java
+public sealed interface GameEvent permits GuessAccepted, GameWon { }
+```
+
+You’re already halfway there mentally — let the compiler help.
+
+---
+
+### 8. Kill strings in UI models (mostly done 👍)
+
+You already replaced many with enums (`GameStatusView`, etc.).
+Finish the job. Strings are lies waiting to happen.
+
+---
+
+## 5. What I would NOT touch (yet)
+
+* CLI implementation (fine)
+* Resource handling (fine)
+* Overall package layout (mostly sane)
+* Test structure (don’t churn until refactors settle)
+
+---
+
+## 6. Suggested Order of Attack (important)
+
+1. **Split events vs views**
+2. **Make AppController intent-only**
+3. **Introduce GameUiModelMapper**
+4. **Extract TimerCoordinator**
+5. **Tighten GameState mutability**
+6. **Refactor AppFactory**
+
+Do *not* do these all at once. One PR per bullet.
+
+---
+
+## Bottom Line (no sugarcoating)
+
+This is **not** a mess.
+It’s a codebase that’s about **one disciplined refactor away from being clean**.
+
+You’re past the “architecture by vibes” phase.
+Now it’s about enforcing boundaries — aggressively.
+
+If you want, next step I can:
+
+* draw the post-refactor class diagram
+* or give you a **one-page “rules of the architecture” doc**
+* or rip into one specific class and propose a concrete diff
+
+Your move.

@@ -10,4 +10,9 @@ public record SavedDocDto(String id, String title, String url, Instant fetchedAt
     Objects.requireNonNull(url, "url");
     Objects.requireNonNull(fetchedAt, "fetchedAt");
   }
+
+  @Override
+  public String toString() {
+    return title + " — " + url;
+  }
 }

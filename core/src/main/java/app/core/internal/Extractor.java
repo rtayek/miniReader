@@ -53,7 +53,7 @@ class Extractor {
       if (content == null) return null;
 
       String text = Jsoup.parse(content).text();
-      if (text.strip().length() < 400) return null;
+      if (text.strip().length() < READABILITY_MIN_LENGTH) return null;
 
       return content;
     } catch (Exception e) {
@@ -100,7 +100,7 @@ class Extractor {
         case "code" -> {
           if (!"pre".equals(el.parent() != null ? el.parent().tagName() : "")) {
             String t = el.text();
-            if (t != null && t.strip().length() > 40) out.add(new BlockDto.Code(t.strip()));
+            if (t != null && t.strip().length() > INLINE_CODE_MIN_LENGTH) out.add(new BlockDto.Code(t.strip()));
           }
         }
         default -> {}
@@ -183,4 +183,7 @@ class Extractor {
       return url.isBlank() ? "unknown" : url;
     }
   }
+
+  private static final int READABILITY_MIN_LENGTH = 400;
+  private static final int INLINE_CODE_MIN_LENGTH = 40;
 }

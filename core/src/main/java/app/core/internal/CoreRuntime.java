@@ -73,7 +73,7 @@ public class CoreRuntime implements AutoCloseable {
 
   public boolean looksLikeJsShell(String plainText) {
     String t = plainText == null ? "" : plainText.strip();
-    if (t.length() >= 250) return false;
+    if (t.length() >= JS_SHELL_MAX_LENGTH) return false;
     String lower = t.toLowerCase();
     return lower.contains("enable javascript")
         || lower.contains("loading")
@@ -129,8 +129,11 @@ public class CoreRuntime implements AutoCloseable {
   
   private String snippet(String body) {
     if (body == null) return "";
-    return body.substring(0, Math.min(body.length(), 400));
+    return body.substring(0, Math.min(body.length(), ERROR_SNIPPET_CHARS));
   }
+
+  private static final int ERROR_SNIPPET_CHARS = 400;
+  private static final int JS_SHELL_MAX_LENGTH = 250;
 
   private final AnswerService answerService;
   private final Chunker chunker;

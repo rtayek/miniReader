@@ -25,15 +25,15 @@ class AnswerService {
         .toList();
 
     List<String> bullets = top.stream()
-        .limit(4)
+        .limit(MAX_BULLETS)
         .map(h -> bestSentence(h.text()))
         .filter(s -> !s.isBlank())
         .distinct()
-        .limit(6)
+        .limit(MAX_BULLETS + 2)
         .toList();
 
     List<CitationDto> cites = top.stream()
-        .limit(6)
+        .limit(MAX_CITATIONS)
         .map(h -> new CitationDto(h.title(), h.url(), h.headingPath(), h.chunkId(), snippet(h.text())))
         .toList();
 
@@ -51,16 +51,22 @@ class AnswerService {
     String[] parts = t.split("(?<=[.!?])\\s+");
     for (String p : parts) {
       String s = p.strip();
-      if (s.length() >= 60 && s.length() <= 220) return s;
+      if (s.length() >= BULLET_MIN && s.length() <= BULLET_MAX) return s;
     }
-    return t.length() <= 220 ? t : t.substring(0, 220).strip() + "…";
+    return t.length() <= BULLET_MAX ? t : t.substring(0, BULLET_MAX).strip() + "…";
   }
 
   private String snippet(String text) {
     String t = text == null ? "" : text.strip();
-    if (t.length() <= 280) return t;
-    return t.substring(0, 280).strip() + "…";
+    if (t.length() <= SNIPPET_MAX) return t;
+    return t.substring(0, SNIPPET_MAX).strip() + "…";
   }
 
   private final LuceneIndex index;
+
+  private static final int BULLET_MIN = 60;
+  private static final int BULLET_MAX = 220;
+  private static final int SNIPPET_MAX = 280;
+  private static final int MAX_BULLETS = 4;
+  private static final int MAX_CITATIONS = 6;
 }

@@ -15,5 +15,5 @@ public sealed interface IngestOutcome
 
   record HttpError(int statusCode, String snippet) implements IngestOutcome {}
 
-  record FetchError(String message) implements IngestOutcome {}
+  record FetchError(String message, String exceptionClass) implements IngestOutcome {}
 }

@@ -41,9 +41,10 @@ public class CoreRuntime implements AutoCloseable {
     } catch (Exception e) {
       if (e instanceof InterruptedException ie) {
         Thread.currentThread().interrupt();
-        return new IngestOutcome.FetchError("Interrupted fetching " + url);
+        return new IngestOutcome.FetchError("Interrupted fetching " + url, e.getClass().getSimpleName());
       }
-      return new IngestOutcome.FetchError(e.getMessage() == null ? "Fetch failed" : e.getMessage());
+      String msg = e.getMessage() == null ? "Fetch failed" : e.getMessage();
+      return new IngestOutcome.FetchError(msg, e.getClass().getSimpleName());
     }
   }
 
@@ -71,7 +72,7 @@ public class CoreRuntime implements AutoCloseable {
     }
   }
 
-  public boolean looksLikeJsShell(String plainText) {
+  boolean looksLikeJsShell(String plainText) {
     String t = plainText == null ? "" : plainText.strip();
     if (t.length() >= JS_SHELL_MAX_LENGTH) return false;
     String lower = t.toLowerCase();

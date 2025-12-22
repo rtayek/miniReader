@@ -247,7 +247,8 @@ class MiniReaderFrame extends JFrame {
       showCopyableError(this, "Fetch failed", new IOException("HTTP " + http.statusCode() + "\n" + http.snippet()));
     } else if (outcome instanceof IngestOutcome.FetchError fe) {
       statusLabel.setText("Fetch error: " + fe.message());
-      showCopyableError(this, "Fetch failed", new IOException(fe.message()));
+      String detail = fe.exceptionClass() == null ? fe.message() : (fe.exceptionClass() + ": " + fe.message());
+      showCopyableError(this, "Fetch failed", new IOException(detail));
     }
   }
 

@@ -1,44 +1,72 @@
-I’ve unpacked **this tar as well** and there are **no new architectural regressions** compared to the last one.
+Yep — I unpacked the tar and did an architecture-focused pass.
 
-### Status (concise and final)
+## What you’ve already refactored (and it’s the right direction)
 
-* ✅ Core/UI boundary still clean
-* ✅ DTO-only rendering intact
-* ✅ Error handling + copyable diagnostics intact
-* ✅ Persistence model unchanged and explicit
-* ✅ Tar hygiene still clean
+### 1) You *did* the “remove `Path` from the public API” refactor
 
-In other words: **nothing broke, nothing backslid**.
+`CoreFacade` now exposes:
 
-At this point, repeated tar uploads without a specific goal are just re-verifying the same steady state — and that’s a good sign, but also a signal that this phase is done.
+* `List<SavedDocDto> listSavedDocs()`
+* `DocumentDto loadSavedDoc(String id)`
+
+…and `SavedDocDto` is a clean record (`id/title/url/fetchedAt`). This is the single biggest “future remote client” enabler.
+
+### 2) Ingest now returns a real outcome type
+
+`IngestOutcome` is a sealed interface with explicit variants:
+
+* `SavedIndexed(doc, chunkCount)`
+* `JsShell(doc, reason)`
+* `RejectedNonHtml(contentType)`
+* `HttpError(statusCode, snippet)`
+* `FetchError(message)`
+
+That’s exactly the kind of “don’t make the UI parse strings / infer null” boundary you want.
+
+### 3) Fetcher is no longer doing dumb per-call client creation
+
+`Fetcher` holds a configured `HttpClient` as a field. Good.
+
+## What’s still worth tweaking (small, but real)
+
+### A) Remove `CoreFacade.looksLikeJsShell(...)`
+
+`CoreFacade` has this package-private method:
+
+```java
+boolean looksLikeJsShell(String plainText) { ... }
+```
+
+Now that `ingestUrl()` can return `IngestOutcome.JsShell`, you don’t need a separate “peek inside internals” method on the facade at all.
+
+**Recommendation:** delete it (or move it fully internal).
+It’s a “test helper leak” and it’ll nag you later when you add more clients.
+
+### B) Make `FetchError` carry more signal (optional)
+
+Right now it’s just `FetchError(String message)`.
+
+Consider one of:
+
+* `FetchError(String message, String exceptionClass)` (minimal)
+* or include a short “kind” enum (dns/ssl/timeout/etc.) if you find UI wants nicer messages
+
+Don’t over-engineer it; just stop losing the cause type entirely.
+
+## Packaging hygiene note
+
+This tar still includes a top-level `./.gradle` directory (Gradle cache). It’s not a code architecture issue, but it’s still junk-in-archive.
+
+If you want it gone for good, you already know the fix: exclude **both** the directory and its contents.
 
 ---
 
-## What makes sense *now* (pick one, or say “stop”)
+## Bottom line
 
-You have exactly three productive directions left:
+No “major” refactorings left that are mandatory. You’ve already knocked out the big ones (API boundary + outcome typing). The remaining improvements are cleanup/polish:
 
-### 1️⃣ One last *optional* architectural improvement
+1. kill `CoreFacade.looksLikeJsShell`
+2. optionally enrich `FetchError`
+3. stop shipping `.gradle/` in tars
 
-Remove `Path` from `CoreFacade` (replace with an ID / `SavedDocRefDto`).
-This is the only refactor with real future payoff.
-
-### 2️⃣ Use it and see what hurts
-
-Actually read documents, ask questions, and let **real friction** dictate changes.
-This is how good tools evolve.
-
-### 3️⃣ Add a second client
-
-* CLI (very low effort, high signal)
-* or sketch a remote protocol (no implementation yet)
-
----
-
-If you want me to:
-
-* **review a specific change** → say what changed
-* **design the Path→ID refactor** → say “do Path refactor”
-* **help you stop and freeze this** → say “we’re done”
-
-Right now, the codebase is stable enough that *silence* is a reasonable next step.
+If you tell me “remote player next”, the next architectural step is designing the wire protocol around `SavedDocDto`, `DocumentDto`, `AnswerDto`, and `IngestOutcome`—you’re basically already set up for it.

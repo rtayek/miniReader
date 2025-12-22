@@ -37,10 +37,6 @@ public class CoreFacade implements AutoCloseable {
     runtime.close();
   }
 
-  boolean looksLikeJsShell(String plainText) {
-    return runtime.looksLikeJsShell(plainText);
-  }
-
   private final CoreRuntime runtime;
   private final MiniReaderConfig config;
 }

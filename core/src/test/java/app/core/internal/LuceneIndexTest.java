@@ -4,7 +4,7 @@ import app.core.DocumentDto;
 import app.core.MiniReaderConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;

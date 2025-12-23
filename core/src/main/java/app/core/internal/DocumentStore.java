@@ -41,7 +41,6 @@ class DocumentStore {
     try (var s = Files.list(config.docsDir())) {
       return s
           .filter(p -> p.getFileName().toString().endsWith(".json"))
-          .sorted()
           .map(this::toSavedDoc)
           .sorted(Comparator.comparing(SavedDocDto::fetchedAt).reversed())
           .toList();
@@ -58,7 +57,9 @@ class DocumentStore {
       Instant fetched = dto.fetchedAt() == null ? Instant.EPOCH : dto.fetchedAt();
       return new SavedDocDto(dto.id(), dto.title(), dto.url(), fetched);
     } catch (IOException e) {
-      return new SavedDocDto(stripExt(path.getFileName().toString()), path.toString(), "", Instant.EPOCH);
+      String id = stripExt(path.getFileName().toString());
+      String title = "Unreadable document";
+      return new SavedDocDto(id, title, path.toString(), Instant.EPOCH);
     }
   }
 

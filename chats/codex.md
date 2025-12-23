@@ -1,0 +1,3 @@
+Fixed saved-doc listing polish: removed redundant sorting and made unreadable docs show a clear "Unreadable document" title with the file path as the URL (DocumentStore.java).
+Cleaned the shell detection test imports after internalization (CoreFacadeShellDetectionTest.java).
+Note: XHTML acceptance and the split between external outcomes and internal exceptions are already in place (validateFetch accepts application/xhtml+xml; fetch IO issues return FetchError, while downstream failures throw MiniReaderException). The .gradle/ tar entry is a packaging concern outside code; ensure it’s excluded when archiving.

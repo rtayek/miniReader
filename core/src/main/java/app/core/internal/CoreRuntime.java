@@ -95,8 +95,9 @@ class CoreRuntime implements CoreRuntimeApi {
     if (fetch.statusCode() < 200 || fetch.statusCode() >= 300) {
       return new IngestOutcome.HttpError(fetch.statusCode(), snippet(fetch.body()));
     }
-    if (!isHtmlContentType(fetch.contentType()) && !fetch.contentType().isBlank()) {
-      return new IngestOutcome.RejectedNonHtml(fetch.contentType());
+    String ct = fetch.contentType() == null ? "" : fetch.contentType();
+    if (!isHtmlContentType(ct) && !ct.isBlank()) {
+      return new IngestOutcome.RejectedNonHtml(ct);
     }
     return null;
   }

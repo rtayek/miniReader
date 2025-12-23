@@ -1,117 +1,76 @@
-I pulled the tar apart and reviewed it as “what did Evil Twin actually change, what’s good, what’s still architecturally off, and what’s the next baby steps.”
+I unpacked the tar and reviewed **core + UI** with an “architectural leverage” lens (what will matter as you add features or a second client). You’re in a good place: the project is coherent, testable, and the DTO/outcome boundary is doing real work.
 
-## What Evil Twin did well
+Below are the **highest-value recommendations**, in baby steps, with concrete targets.
 
-### UI is now operationally sane
+## 1) Fix a correctness bug: XHTML is rejected
 
-`MiniReaderFrame` is in a good place:
+`CoreRuntime.validateFetch(...)` currently treats anything not containing `"text/html"` as non-HTML, which incorrectly rejects `application/xhtml+xml` (even though your `Accept` header includes it).
 
-* Fetch runs off the EDT (`SwingWorker`) and clears the display before work starts.
-* Blank URL is handled visibly (no silent no-op).
-* All `ExecutionException` paths print stack traces and show a copyable dialog.
-* `IngestOutcome` is handled explicitly and drives UI behavior (good boundary discipline).
-* The saved-doc list is now DTO-based (`SavedDocDto`) and loads by `id` (good “future remote client” posture).
+**Change:** allow XHTML as “HTML-ish”.
 
-Net: the “haunted UI” phase is behind you.
+Why it matters: some sites legitimately serve XHTML, and you’ll get false negatives.
 
-### Fetcher is correct
+## 2) Stop collapsing internal failures into `IngestOutcome.FetchError`
 
-`Fetcher` now correctly reuses a single `HttpClient` instance. That’s the right default.
-
-## The main architectural problem that remains
-
-### CoreRuntime still collapses internal failures into `FetchError`
-
-In `CoreRuntime.ingestUrl(String)`:
+Right now `CoreRuntime.ingestUrl(...)` has a catch-all:
 
 ```java
-} catch (Exception e) {
-  ...
-  return new IngestOutcome.FetchError(msg, e.getClass().getSimpleName());
-}
+} catch (Exception e) { ... return new IngestOutcome.FetchError(...); }
 ```
 
-That catch-all is still doing damage. It turns **everything** into “fetch error,” including:
+This mislabels:
 
-* `DocumentStore.save` failures (disk, serialization, permissions)
-* `LuceneIndex.index` failures
-* extractor bugs
-* chunker bugs
-* anything else internal
+* store/save failures
+* Lucene indexing failures
+* extraction/chunking bugs
 
-This will mislead you during real use, and it will be painful when you add a second client.
+…as “fetch error”.
 
-### Recommended fix: split “expected outcomes” vs “internal faults”
+**Recommendation:** split failure semantics:
 
-Keep `IngestOutcome` for expected ingest outcomes:
+* return `IngestOutcome.*` for *expected/external* failures (HTTP status, non-HTML, JS shell, network/URI issues)
+* throw `MiniReaderException` for *internal/system* failures (store/index/extract/chunk)
 
-* non-2xx HTTP
-* non-HTML content type
-* “JS shell” detection
-* network / URI / timeout / SSL / interruption
+Why it matters: it’s the difference between “site blocked me” and “my local library/index is broken”. This becomes critical the moment you add a remote client or even just want reliable diagnostics.
 
-But for **internal** failures, throw `MiniReaderException` (your public API already supports `throws MiniReaderException`).
+## 3) Remove dead fields and tighten boundaries
 
-Baby-step implementation (conceptual):
+These are low-risk cleanups that reduce confusion:
 
-* Catch: `IllegalArgumentException` (bad URI), `IOException`, `InterruptedException` from the fetch path → return `FetchError`
-* Let `IOException`/`RuntimeException` from store/index/extract/chunk be wrapped and thrown as `MiniReaderException`
+* `CoreFacade` stores `private final MiniReaderConfig config;` but never uses it after construction. Remove it unless you plan to expose config.
+* `CoreRuntime` is `public` in `app.core.internal` but has a package-private constructor. Make `CoreRuntime` package-private (`class CoreRuntime`) and keep access through `CoreRuntimes`. That hardens the “only via facade” rule.
 
-That gives your UI the ability to say:
+## 4) Move JS-shell detection out of `CoreRuntime`
 
-* “site blocked you” vs
-* “your local library/index is broken”
+`looksLikeJsShell(String)` doesn’t belong to “runtime”; it’s content classification. Move it to a small internal helper (e.g., `ShellDetector`) or into `Extractor` if you consider it part of extraction quality.
 
-Right now it cannot.
+Why it matters: cohesion. It keeps `CoreRuntime` focused on orchestration.
 
-## One real correctness bug in core
+## 5) Clean up `DocumentStore.list()` (minor but easy)
 
-### XHTML is rejected
-
-`validateFetch` currently checks only for `text/html` and rejects XHTML:
+`list()` sorts twice:
 
 ```java
-if (!fetch.contentType().toLowerCase().contains("text/html") && !fetch.contentType().isBlank()) {
-  return new IngestOutcome.RejectedNonHtml(fetch.contentType());
-}
+.sorted()
+...
+.sorted(Comparator.comparing(...).reversed())
 ```
 
-But your `Accept` header explicitly includes `application/xhtml+xml`. So this is inconsistent.
+The first `.sorted()` is redundant. Remove it.
 
-Baby-step fix:
+Also, when JSON parsing fails, `toSavedDoc()` currently uses the filesystem path as the title. Consider making that obviously an error (e.g., title = `"Unreadable document"` and store the path in url or an error field) so the UI doesn’t display nonsense.
 
-* treat `application/xhtml+xml` as HTML-ish as well.
+## 6) Tar hygiene: you still ship an empty `./.gradle/` entry
 
-## Boundary hardening opportunities (low risk, nice cleanup)
+The archive includes `./.gradle/` (directory entry only). Not fatal, but if your goal is “no `.gradle` at all,” update the tar excludes to remove the directory itself, not just its contents.
 
-### 1) `CoreFacade` stores config but never uses it
+---
 
-`private final MiniReaderConfig config;` in `CoreFacade` is dead. Remove it unless you plan to expose it.
+# If you do only two things
 
-### 2) `CoreRuntime` is public in an internal package
+1. **Fix XHTML acceptance** in `validateFetch`.
+2. **Split internal failures vs external failures** (exceptions vs `IngestOutcome`).
 
-`CoreRuntime` is `public` but constructed package-private. It’s not a crisis, but it’s an attractive nuisance.
+Those two changes give you the biggest jump in correctness + debuggability with minimal churn.
 
-If you want to harden properly without contortions:
-
-* introduce a `public interface CoreRuntimeApi` in `app.core.internal`
-* make `CoreRuntime` package-private implementing it
-* `CoreFacade` holds the interface type
-
-### 3) `looksLikeJsShell` shouldn’t be a method on the runtime
-
-It’s a classifier/heuristic. Move it to a tiny internal helper (`ShellDetector`) or into `Extractor` if you treat it as part of extraction quality.
-
-## Tar hygiene regression
-
-This tar includes a top-level `/.gradle` directory again. Not a code issue, but it’s junk that reintroduces confusion.
-
-## Recommended next steps (in order)
-
-1. Fix XHTML acceptance in `validateFetch`.
-2. Split `ingestUrl` error handling: outcomes for expected failures, exceptions for internal faults.
-3. Remove dead `config` field from `CoreFacade`.
-4. Optional: harden internal boundary (`CoreRuntimeApi` interface), and relocate JS-shell detection helper.
-5. Fix tar script to exclude `.gradle/` consistently.
-
-If you want, paste the current `CoreRuntime.ingestUrl` and I’ll give you the exact “small patch” version of the exception/outcome split (minimal churn, keeps UI unchanged except for one more error path).
+If you want, I can draft the exact patch for #1 and a minimal, non-invasive patch for #2 that keeps your UI code almost unchanged.

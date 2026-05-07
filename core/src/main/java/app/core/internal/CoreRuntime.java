@@ -91,7 +91,7 @@ class CoreRuntime implements CoreRuntimeApi {
     return fetcher.fetch(url);
   }
 
-  private IngestOutcome validateFetch(FetchResult fetch) {
+  IngestOutcome validateFetch(FetchResult fetch) {
     if (fetch.statusCode() < 200 || fetch.statusCode() >= 300) {
       return new IngestOutcome.HttpError(fetch.statusCode(), snippet(fetch.body()));
     }
